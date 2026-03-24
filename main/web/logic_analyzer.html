@@ -177,6 +177,8 @@
     style="position: absolute; top: 0; left: 0; width: 100%; height: 30px; display: flex; align-items: center; gap: 5px; padding-left: 5px; z-index: 20;">
     <button id="settingsButton" class="control-button"
       style="position: relative; top: auto; left: auto; margin: 0;">⚙️</button>
+    <button id="testSignalTopToggle" class="control-button"
+      style="position: relative; top: auto; left: auto; margin: 0;">Test Signal: OFF</button>
     <button id="measureModeToggle" class="control-button"
       style="position: relative; top: auto; left: auto; margin: 0;">Measure: OFF</button>
     <button id="saveCaptureButton" class="control-button"
@@ -289,6 +291,7 @@
         this.triggerModeToggle = document.getElementById("triggerModeToggle");
         this.triggerOnToggle = document.getElementById("triggerOnToggle");
         this.testSignalToggle = document.getElementById("testSignalToggle");
+        this.testSignalTopToggle = document.getElementById("testSignalTopToggle");
         this.statusBar = document.getElementById("statusBar");
 
         // Event Listeners for Canvas
@@ -480,6 +483,17 @@
           this.testSignalToggle.textContent = (this.testSignalToggle.textContent === "OFF") ? "ON" : "OFF";
         });
 
+        // Top-bar Test Signal quick toggle — applies immediately without opening settings
+        this.testSignalTopToggle.textContent = "Test Signal: " + (this.settings.captureInternalTestSignal ? "ON" : "OFF");
+        this.testSignalTopToggle.addEventListener("click", () => {
+          this.settings.captureInternalTestSignal = !this.settings.captureInternalTestSignal;
+          const onOff = this.settings.captureInternalTestSignal ? "ON" : "OFF";
+          this.testSignalTopToggle.textContent = "Test Signal: " + onOff;
+          this.testSignalToggle.textContent = onOff;  // keep settings popup in sync
+          this.sendSettingsToServer();
+          this.updateStatusBar();
+        });
+
         this.settingsPopup.addEventListener("click", (e) => {
           if (e.target === this.settingsPopup) {
             this.settingsPopup.style.display = "none";
@@ -492,6 +506,7 @@
           this.settings.triggerModeOR = (this.triggerModeToggle.textContent === "OR");
           this.settings.triggerEnabled = (this.triggerOnToggle.textContent === "Trigger ON");
           this.settings.captureInternalTestSignal = (this.testSignalToggle.textContent === "ON");
+          this.testSignalTopToggle.textContent = "Test Signal: " + (this.settings.captureInternalTestSignal ? "ON" : "OFF");
 
           for (let i = 0; i < this.numChannels; i++) {
             const select = document.getElementById(`triggerCH${i + 1}`);
@@ -754,6 +769,7 @@
 
             // Restore Metadata
             this.settings = metadata.settings;
+            this.testSignalTopToggle.textContent = "Test Signal: " + (this.settings.captureInternalTestSignal ? "ON" : "OFF");
             this.sampleRateHz = metadata.sampleRateHz;
             this.actualTriggerPosition = metadata.actualTriggerPosition;
             this.numChannels = metadata.numChannels;
