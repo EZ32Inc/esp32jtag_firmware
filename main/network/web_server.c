@@ -847,6 +847,20 @@ esp_err_t set_credentials_handler(httpd_req_t *req) {
         reboot_required = true;
     }
 
+    // Check for Target Voltage Change
+    if (targetVoltage_str) {
+        char *stored_tv = NULL;
+        if (storage_alloc_and_read(TARGET_VOLTAGE_KEY, &stored_tv) == ESP_OK && stored_tv) {
+            if (strcmp(stored_tv, targetVoltage_str) != 0) {
+                ESP_LOGI(TAG, "Target voltage changed: %s -> %s", stored_tv, targetVoltage_str);
+                reboot_required = true;
+            }
+            free(stored_tv);
+        } else {
+            reboot_required = true;  /* key absent — first time setting */
+        }
+    }
+
     // MCU Interface is fixed to GPIO — ignore incoming value, ensure correct value stored
     {
         char *stored_mcu_if = NULL;

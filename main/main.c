@@ -190,6 +190,17 @@ static esp_err_t load_fpga(void)
 #define SPI_CLK_MHZ             (20*1000*1000)
 #define INITIAL_VIO_DUTY        8   /* 8/1024 → ~3.30V output */
 
+/* PWM duty values for Target IO Voltage UI options (index matches HTML option value):
+ *   0 = 3.3V → duty   8
+ *   1 = 2.5V → duty 123
+ *   2 = 1.8V → duty 228
+ *   3 = 1.5V → duty 271
+ *   4 = 1.2V → duty 318
+ * Derived from empirical measurements on ESP32JTAG v1.3/v1.4 hardware.
+ * Default (fresh flash / factory reset) is index 0 = 3.3V. */
+static const uint16_t vio_duty_table[] = { 8, 123, 228, 271, 318 };
+#define VIO_DUTY_TABLE_SIZE  (sizeof(vio_duty_table) / sizeof(vio_duty_table[0]))
+
 static spi_device_handle_t spi_device_1_manual_handle;
 static spi_device_handle_t spi_device_2_hw_handle;
 static spi_device_handle_t spi_device_3_hw_handle;
@@ -928,8 +939,19 @@ void app_main(void) {
     // 100-->2.65V, 120-->2.52V, 123-->2.50V, 200-->1.99V, 220-->1.85V, 228-->1.80V, 235-->1.75V,
     // 250-->1.66V, 271-->1.50V, 275-->1.48V, 300-->1.33V, 318-->1.20V, 320-->1.19V,
     // 322-->1.18V, 350-->1.00V, 400-->0.66V
-    uint16_t pwm1_duty = INITIAL_VIO_DUTY;
-    ESP_LOGI(TAG, "To setup VIO voltage PWM to %d%% pwm1_duty=%d", (pwm1_duty) * 100 / 1024, pwm1_duty);
+    uint16_t pwm1_duty = INITIAL_VIO_DUTY;  /* default: 3.3V when key absent */
+    {
+        char *volt_str = NULL;
+        if (storage_alloc_and_read(TARGET_VOLTAGE_KEY, &volt_str) == ESP_OK && volt_str) {
+            int idx = atoi(volt_str);
+            free(volt_str);
+            if (idx >= 0 && idx < (int)VIO_DUTY_TABLE_SIZE) {
+                pwm1_duty = vio_duty_table[idx];
+            }
+        }
+        /* If key absent (fresh flash or after factory reset): pwm1_duty stays INITIAL_VIO_DUTY = 3.3V */
+    }
+    ESP_LOGI(TAG, "VIO voltage: pwm1_duty=%u", pwm1_duty);
     setup_pwm1();
     set_pwm1_duty(pwm1_duty);
 #endif
