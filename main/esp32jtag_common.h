@@ -66,6 +66,7 @@
 #define CFGPC 0x80      //1 to select SWD/JTAG; 0 to set Port C all to HIZ and as input for logic analyzer
 
 esp_err_t set_la_input_sel(bool use_test_signal);//set or clear LA_INPUT_SEL
+esp_err_t set_sreset(bool assert_reset);          //assert/deassert SRESET on Port B pin3
 
 extern uint8_t global_data_reg_0; //defined in main/main.c
 extern uint8_t global_data_reg_1;//bit 7 to set wr_and_rd or rread only, bit 6 to 0 reserved

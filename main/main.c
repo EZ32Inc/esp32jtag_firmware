@@ -831,6 +831,26 @@ esp_err_t set_la_input_sel(bool use_test_signal)
     ESP_LOGI(TAG, "rx=0x%02x %02x %02x",rx[0],rx[1], rx[2]);
     return ret1;
 }
+/* Assert (true) or deassert (false) the SRESET signal on Port B pin3.
+ * Port B must be configured as PB_UART_SRESET_VTARGET for the signal
+ * to physically appear on the connector. */
+esp_err_t set_sreset(bool assert_reset)
+{
+    esp_err_t ret1 = 0;
+    uint8_t tx[3]={0x0,0,0};
+    uint8_t rx[3]={0};
+    tx[0] = global_data_reg_1 | 0x80;
+    if (assert_reset) {
+        global_data_reg_0 |= SRESET;
+    } else {
+        global_data_reg_0 &= ~SRESET;
+    }
+    tx[1] = global_data_reg_0;
+    ret1 = spi_device4_transfer_data(tx, rx, 3);
+    ESP_LOGI(TAG, "set_sreset(%d): global_data_reg_0=0x%02x", assert_reset, global_data_reg_0);
+    return ret1;
+}
+
 bool gbl_sw2_gpio48_flag = false;
 void check_sw1_sw2(void)
 {

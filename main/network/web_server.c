@@ -1668,6 +1668,38 @@ static esp_err_t la_get_settings_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t reset_target_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    cJSON *root = cJSON_CreateObject();
+
+    if (gbl_pb_cfg != PB_UART_SRESET_VTARGET) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Port B must be configured as Vtarget+UART+SReset");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    /* Pulse SRESET: assert → 100 ms → deassert */
+    set_sreset(true);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    set_sreset(false);
+
+    cJSON_AddStringToObject(root, "status",  "ok");
+    cJSON_AddStringToObject(root, "message", "Reset pulse sent (100 ms)");
+    char *js = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, js);
+    free(js);
+    return ESP_OK;
+}
+
 static esp_err_t version_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -1881,6 +1913,13 @@ httpd_uri_t uri_version = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_reset_target = {
+    .uri      = "/api/reset_target",
+    .method   = HTTP_POST,
+    .handler  = reset_target_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_test_start = {
     .uri      = "/test/start",
     .method   = HTTP_POST,
@@ -1973,6 +2012,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_configure);
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
     httpd_register_uri_handler(*http_handle, &uri_version);
+    httpd_register_uri_handler(*http_handle, &uri_reset_target);
 
     // Test automation endpoints
     httpd_register_uri_handler(*http_handle, &uri_test_start);

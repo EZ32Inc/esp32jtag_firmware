@@ -497,6 +497,17 @@
       </div>
 
       <div class="panel">
+        <h3>Target Control</h3>
+        <div style="margin-top: 10px;">
+          <button type="button" id="reset-target-btn" onclick="resetTarget()">Reset Target</button>
+          <span id="reset-target-status" style="margin-left: 14px; font-size: 0.9em; color: #444;"></span>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.82em; color: #666;">
+          Sends a 100 ms reset pulse on Port B pin 3. Requires Port B configured as <b>Vtarget + UART + SReset</b>.
+        </div>
+      </div>
+
+      <div class="panel">
         <div style="margin-top: 10px;">
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
@@ -721,6 +732,29 @@
         // disableUsbDapCom is fixed — not loaded from server
       }
 
+
+      async function resetTarget() {
+        const btn = document.getElementById('reset-target-btn');
+        const status = document.getElementById('reset-target-status');
+        btn.disabled = true;
+        status.style.color = '#444';
+        status.textContent = 'Sending reset…';
+        try {
+          const r = await fetch('/api/reset_target', { method: 'POST' });
+          const j = await r.json();
+          if (j.status === 'ok') {
+            status.style.color = '#1a7f3c';
+            status.textContent = j.message;
+          } else {
+            status.style.color = '#c0392b';
+            status.textContent = j.message;
+          }
+        } catch(e) {
+          status.style.color = '#c0392b';
+          status.textContent = 'Request failed: ' + e;
+        }
+        btn.disabled = false;
+      }
 
       function setToDefault() {
         if (confirm("All settings will be set to default values.\nClick OK to continue or Cancel to abort.")) {
