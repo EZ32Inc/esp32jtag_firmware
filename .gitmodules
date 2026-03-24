@@ -1,0 +1,9 @@
+[submodule "main/openocd"]
+	path = main/openocd
+	url = ../openocd-on-esp32.git
+[submodule "components/jimtcl/jimtcl"]
+	path = components/jimtcl/jimtcl
+	url = ../jimtcl.git
+[submodule "components/blackmagic_esp32"]
+	path = components/blackmagic_esp32
+	url = https://github.com/EZ32Inc/blackmagic_esp32

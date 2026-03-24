@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>ESP32JTAG Web Interface</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #243b55;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 2px;
+    }
+
+    header img {
+      max-width: 200px;
+    }
+
+    footer {
+      padding: 10px;
+      text-align: center;
+      font-size: 14px;
+      color: white;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background-color: #ddd;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+
+    .tab.active {
+      background-color: #fff;
+      color: #E11E1E;
+    }
+
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .form-column {
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    .form-container {
+      display: none;
+    }
+
+    form {
+      max-width: 600px;
+      margin: 0 auto;
+      margin-bottom: 50px;
+      padding: 20px;
+      background-color: #f4f4f4;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4-px;
+      box-sizing: border-box;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-top: 20px;
+      background-color: #344562;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.7;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      opacity: 1;
+    }
+
+    .caption {
+      text-align: center;
+      font-weight: bold;
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+
+    .panel .form-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .panel .form-row label {
+      margin-right: 10px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      border-radius: 20px;
+      transition: 0.4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.4s;
+    }
+
+    input:checked+.slider {
+      background-color: #0272B7;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    .file-upload input[type="file"]::-webkit-file-upload-button {
+      padding: 10px 20px;
+      background-color: #344562;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .file-upload input[type="file"]::-webkit-file-upload-button:hover {
+      background-color: #243b55;
+    }
+
+    .file-name {
+      font-weight: normal;
+    }
+
+    .delete-button {
+      background-color: #E11E1E;
+      border: none;
+      color: white;
+      width: 190px;
+      align-items: center;
+      padding: 10px;
+      margin: 20px 0px 0px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .upload-button {
+      background-color: #243b55;
+      border: none;
+      color: white;
+      width: 190px;
+      align-items: center;
+      padding: 10px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 13px;
+      margin: 20px 0px 0px;
+      cursor: pointer;
+    }
+
+    .file-upload-drop-area {
+      border: 2px dashed #ccc;
+      padding: 50px;
+      text-align: center;
+      cursor: pointer;
+      background-color: #f9f9f9;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    .file-upload-drop-area.dragover {
+      background-color: #e6e6e6;
+      border-color: #344562;
+    }
+
+    .file-upload-drop-area .file-name {
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    #ota-upload-button {
+      background-color: #ccc;
+    }
+
+    #ota-upload-button:not([disabled]):hover {
+      background-color: #E11E1E;
+      opacity: 0.7;
+    }
+
+    #ota-upload-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #progress-container {
+      display: none;
+      /* Hide by default */
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #ota-progress-bar {
+      width: 100%;
+      height: 25px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f3f3f3;
+    }
+
+    #ota-progress-bar::-webkit-progress-bar {
+      background-color: #f3f3f3;
+      border-radius: 4px;
+    }
+
+    #ota-progress-bar::-webkit-progress-value {
+      background-color: #0272B7;
+      border-radius: 4px;
+    }
+
+    #ota-progress-bar::-moz-progress-bar {
+      background-color: #0272B7;
+      border-radius: 4px;
+    }
+
+    #ota-progress-text {
+      margin-top: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .terminal-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #1a1a1a;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      color: #00ff00;
+      font-family: monospace;
+    }
+
+    #terminal-display {
+      background-color: #000;
+      height: 300px;
+      overflow-y: scroll;
+      border: 1px solid #555;
+      padding: 10px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 14px;
+    }
+
+    .terminal-input-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    #terminal-input {
+      width: 100%;
+      height: 40px;
+      background-color: #000;
+      color: #00ff00;
+      border: 1px solid #555;
+      padding: 8px;
+      font-family: monospace;
+    }
+
+    #terminal-send-button {
+      background-color: #344562;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 15px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #terminal-send-button:hover {
+      background-color: #243b55;
+    }
+
+    #terminal-send-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .terminal-controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    #connect-button,
+    #disconnect-button {
+      width: 48%;
+    }
+
+    #connection-status {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- This is a comment example-->
+  <div class="tabs">
+    <div class="tab active" id="wifi-tab" onclick="showTab('wifi-tab')">System Configurations</div>
+    <a href="logic_analyzer.html" class="tab" target="_blank" style="text-decoration: none; color: inherit;">Logic
+      Analyzer</a>
+    <div class="tab" id="uart-tab" onclick="showTab('uart-tab')">UART Web Terminal</div>
+    <!--       <div class="tab" id="openocd-tab" onclick="showTab('openocd-tab')">OpenOCD Configuration</div>   -->
+    <div class="tab" id="ota-tab" onclick="showTab('ota-tab')">Firmware Update</div>
+    <a href="help" class="tab" target="_blank" style="text-decoration: none; color: inherit;">ESP32JTAG HELP</a>
+  </div>
+
+  <div id="wifi-tab-form" class="form-container">
+    <form>
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label for="Port A Configuration" style="display: inline-block; width: 300px;">Port A Configuration</label>
+        <select id="pacfg" required>
+          <option value=0>Logic Analyzer</option>
+        </select>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label for="Port B Configuration" style="display: inline-block; width: 300px;">Port B Configuration</label>
+        <select id="pbcfg" required>
+          <option value=0>Logic Analyzer</option>
+          <option value=1>Vtarget + UART + SReset</option>
+        </select>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label for="Port C Configuration" style="display: inline-block; width: 300px;">Port C Configuration</label>
+        <select id="pccfg" required>
+          <option value=0>Logic Analyzer</option>
+          <option value=1>SWD/JTAG</option>
+        </select>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label for="Port D Configuration" style="display: inline-block; width: 300px;">Port D Configuration</label>
+        <select id="pdcfg" required>
+          <option value=0>Logic Analyzer</option>
+          <option value=1>FPGA XVC</option>
+        </select>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label for="Target IO Voltage settings" style="display: inline-block; width: 300px;">Target IO Voltage
+          settings</label>
+        <select id="target_voltage" required>
+          <option value=0>3.3V</option>
+          <option value=1>2.5V</option>
+          <option value=2>1.8V</option>
+          <option value=3>1.5V</option>
+          <option value=4>1.2V</option>
+        </select>
+      </div>
+      <!--
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+          <label for="Software Used for MCU debug" style="display: inline-block; width: 300px;">Software Used for MCU debug</label>
+          <select id="sw_mcu" required>
+            <option value=0>BMP(Black Magic Probe)</option>
+            <option value=1>OpenOCD</option>
+          </select>
+        </div>
+-->
+      <div class="panel">
+        <h3>Wi-Fi Configuration</h3>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+          <label style="width: 100px;">WiFi Mode</label>
+          <label>
+            <input type="radio" name="wifi_mode" value="AP" checked>
+            AP (Access Point Mode)
+          </label>
+          <label>
+            <input type="radio" name="wifi_mode" value="SM" id="st-mode-radio">
+            ST (Station Mode)
+          </label>
+        </div>
+
+
+
+        <div id="wifi-credentials-container" style="display: none; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+            <label for="ssid" style="display: inline-block; width: 100px;">SSID</label>
+            <input type="text" id="ssid">
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+            <label for="password" style="display: inline-block; width: 100px;">Password</label>
+            <input type="password" id="password">
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px; margin-left: 120px;">
+            <label style="font-size: 0.9em;">
+              <input type="checkbox" id="show-password"> Show Password
+            </label>
+          </div>
+        </div>
+        <!--
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+          <label for="ota-url" style="display: inline-block; width: 100px;">OTA URL</label>
+          <input type="text" id="ota-url" placeholder="http://example.com/firmware.bin">
+        </div>
+      </div>
+-->
+      </div>
+
+      <div class="panel">
+        <h3>Advanced Settings</h3>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+          <label style="width: 200px;">MCU SWD/JTAG Interface</label>
+          <label>
+            <input type="radio" name="Interface for MCU SWD/JTAG" value="GPIO" id="if-radio" checked disabled>
+            GPIO
+          </label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+          <label style="width: 200px;">UART Connection</label>
+          <label>
+            <input type="radio" name="uart_connection" value="1" id="uart-web-radio" checked disabled>
+            Web Terminal
+          </label>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+          <label style="width: 350px;">Disable USB based CMSIS-DAP and COM port</label>
+          <label class="switch">
+            <input type="checkbox" id="disable-usb-dap-com" checked disabled>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div style="margin-top: 10px;">
+          <button type="button" onclick="setToDefault()">Set to default</button>
+          <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
+        </div>
+      </div>
+    </form>
+    <footer>
+      <span>&copy; EZ32 Technologies Inc. </span>
+    </footer>
+  </div>
+
+
+  <!--
+    <div id="openocd-tab-form" class="form-container">
+      <form>
+        <label for="config">Target</label>
+        <select id="config" required></select><br><br>
+
+        <div class="form-row">
+          <div class="form-column">
+            <label for="interface">Interface</label>
+            <select id="interface" required>
+              <option value=0>jtag</option>
+              <option value=1>swd</option>
+            </select>
+          </div>
+          <div class="form-column">
+            <label for="rtos">Rtos</label>
+            <select id="rtos" required></select>
+          </div>
+          <div class="form-column">
+            <label for="debug">Debug level</label>
+            <select id="debug" required>
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="form-row">
+            <label for="dual-core">Dual-core</label>
+            <label class="switch">
+              <input type="checkbox" id="dual-core" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="form-row">
+            <label for="flash-support">Flash support</label>
+            <label class="switch">
+              <input type="checkbox" id="flash-support" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <label for="c-param">Command line args</label>
+        <input type="text" id="c-param" required><br><br>
+
+        <button type="button" onclick="sendOpenocdConfig()">Send to ESP Debugger</button>
+      </form>
+
+      <form>
+        <div class="file-upload">
+          <input type="file" id="file-input" accept=".cfg" onchange="handleFileInputChange()">
+          <button type="button" id="upload-button"  class="upload-button" disabled onclick="UploadFile()">Upload a new config file</button>
+          <button type="button" id="delete-button" class="delete-button" onclick="DeleteFile()">Delete a config file</button>
+        </div>
+      </form>
+    </div>
+-->
+  <div id="ota-tab-form" class="form-container">
+    <form>
+      <label class="caption">Firmware Update</label>
+      <div class="panel">
+        <label for="ota-file-input">Drag and drop your firmware (.bin) file here, or click to select:</label>
+        <div id="ota-drop-area" class="file-upload-drop-area">
+          <input type="file" id="ota-file-input" accept=".bin" style="display: none;">
+          <p id="ota-file-name" class="file-name">No file selected.</p>
+        </div>
+      </div>
+      <div id="progress-container">
+        <progress id="ota-progress-bar" value="0" max="100"></progress>
+        <p id="ota-progress-text">0%</p>
+      </div>
+      <button type="button" id="ota-upload-button" disabled onclick="uploadOtaFirmware()">Upload & Update</button>
+    </form>
+    <footer>
+      <span>&copy; EZ32 Technologies Inc. </span>
+    </footer>
+  </div>
+
+  <div id="uart-tab-form" class="form-container">
+    <div class="panel" style="max-width: 600px; margin: 0 auto 20px auto;">
+      <h3>UART Configuration</h3>
+      <div class="form-row">
+        <div class="form-column">
+          <label>Baud Rate</label>
+          <select id="uart-baud">
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="74880">74880</option>
+            <option value="115200">115200</option>
+            <option value="230400">230400</option>
+            <option value="460800">460800</option>
+            <option value="921600">921600</option>
+          </select>
+        </div>
+        <div class="form-column">
+          <label>Data Bits</label>
+          <select id="uart-dbits">
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+        </div>
+        <div class="form-column">
+          <label>Stop Bits</label>
+          <select id="uart-sbits">
+            <option value="1">1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div class="form-column">
+          <label>Parity</label>
+          <select id="uart-parity">
+            <option value="n">None</option>
+            <option value="e">Even</option>
+            <option value="o">Odd</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="saveUartSettings()">Save UART Settings</button>
+    </div>
+    <div class="terminal-container">
+      <div class="terminal-controls">
+        <button id="connect-button">Connect UART</button>
+        <button id="connect-log-button">Connect ESP32 Log Monitor</button>
+        <button id="disconnect-button" disabled>Disconnect</button>
+      </div>
+      <div id="terminal-display"></div>
+      <div class="terminal-input-container">
+        <textarea id="terminal-input" placeholder="Press connect to continue..." disabled></textarea>
+      </div>
+    </div>
+
+    <footer>
+      <span>&copy; EZ32 Technologies Inc. </span>
+    </footer>
+
+    <script>
+      let selectedFile = null;
+      var g_ssid_st = "";
+      var g_ssid_ap = "";
+      var g_last_wifi_mode = "AP"; // Default
+      var g_last_uart_connection = "0"; // Default USB
+
+      function confirmUartConnectionChange(radio) {
+        /*
+                if (radio.value !== g_last_uart_connection) {
+                  if (confirm("To change UART Connection, will restart system, go on?")) {
+                    // User confirmed, save and restart immediately
+                    sendCredentials();
+                  } else {
+                    // User cancelled, revert the radio button
+                    // We need to find the other radio button and check it.
+                    var otherValue = (g_last_uart_connection === "0") ? "0" : "1";
+                    var otherRadio = document.querySelector('input[name="uart_connection"][value="' + otherValue + '"]');
+                    if (otherRadio) {
+                      otherRadio.checked = true;
+                    }
+                  }
+                }
+        */
+      }
+
+      function handleFileInputChange() {
+        document.getElementById("upload-button").disabled = false;
+      }
+
+      function UploadFile() {
+        var fileInput = document.getElementById("file-input");
+        var fileName = fileInput.value.split("\\").pop();
+
+        console.log("File name:", fileName);
+        console.log("File size:", fileInput.files[0].size);
+
+        sendData("/upload/" + fileName, fileInput.files[0]);
+      }
+
+      function DeleteFile() {
+        var fileName = document.getElementById("config").value;
+
+        console.log("File name:", fileName);
+
+        var confirmed = confirm("Are you sure you want to delete the config file " + fileName);
+
+        if (!confirmed) {
+          return; // User cancelled the deletion
+        }
+
+        sendData("/delete/" + fileName, fileName);
+      }
+
+      var lastActiveTab = "wifi-tab"; // Initialize with a default value
+
+      function showTab(tabId) {
+        var formContainers = document.getElementsByClassName("form-container");
+        for (var i = 0; i < formContainers.length; i++) {
+          formContainers[i].style.display = "none";
+        }
+
+        var tabs = document.getElementsByClassName("tab");
+        for (var i = 0; i < tabs.length; i++) {
+          tabs[i].classList.remove("active");
+        }
+
+        var formContainer = document.getElementById(tabId + "-form");
+        formContainer.style.display = "block";
+        var tab = document.getElementById(tabId);
+        tab.classList.add("active");
+        lastActiveTab = tabId;
+      }
+      showTab(lastActiveTab);
+      showTab(lastActiveTab);
+      // getOpenocdConfig();
+      getSystemConfig();
+
+      function getSystemConfig() {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+          if (xhttp.readyState == 4) {
+            if (xhttp.status == 200) {
+              var responseData = JSON.parse(xhttp.responseText);
+              console.log("Received system config:", responseData);
+              populateSystemForm(responseData);
+            } else {
+              console.error("Error getting system config:", xhttp.status, xhttp.responseText);
+            }
+          }
+        };
+        xhttp.open("GET", "/get_credentials", true);
+        xhttp.send();
+      }
+
+
+
+      function populateSystemForm(data) {
+        if (data.pacfg) document.getElementById("pacfg").value = (data.pacfg == 1) ? 0 : data.pacfg;
+        if (data.pbcfg) document.getElementById("pbcfg").value = data.pbcfg;
+        if (data.pccfg) document.getElementById("pccfg").value = data.pccfg;
+        if (data.pdcfg) document.getElementById("pdcfg").value = data.pdcfg;
+        if (data.targetVoltage) document.getElementById("target_voltage").value = data.targetVoltage;
+        // if (data.swMcu) document.getElementById("sw_mcu").value = data.swMcu;
+
+        if (data.wifiMode) {
+          g_last_wifi_mode = data.wifiMode; // Update generic tracker
+          var radio = document.querySelector('input[name="wifi_mode"][value="' + data.wifiMode + '"]');
+          if (radio) {
+            radio.checked = true;
+            // logic below will set input value
+          }
+        }
+
+        // Capture separate SSIDs
+        g_ssid_st = data.ssid_st || "";
+        g_ssid_ap = data.ssid_ap || "";
+
+        // Set input field based on current mode
+        if (data.wifiMode === "SM") {
+          document.getElementById("ssid").value = g_ssid_st;
+        } else {
+          document.getElementById("ssid").value = g_ssid_ap;
+        }
+
+        // Trigger UI update
+        var checkedRadio = document.querySelector('input[name="wifi_mode"]:checked');
+        if (checkedRadio) checkedRadio.dispatchEvent(new Event('change'));
+
+        // Password is usually empty for security, but set it if received
+        if (data.password) document.getElementById("password").value = data.password;
+
+        // mcuInterface, uartPortSel are fixed — not loaded from server
+
+        g_last_uart_connection = "1";
+
+        if (data.uartBaud) document.getElementById("uart-baud").value = data.uartBaud;
+        if (data.uartDataBits) document.getElementById("uart-dbits").value = data.uartDataBits;
+        if (data.uartStopBits) document.getElementById("uart-sbits").value = data.uartStopBits;
+        if (data.uartParity) document.getElementById("uart-parity").value = data.uartParity;
+
+        // disableUsbDapCom is fixed — not loaded from server
+      }
+
+      function getOpenocdConfig() {
+        var configDropdown = document.getElementById("config");
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+          if (xhttp.readyState == 4) {
+            if (xhttp.status == 200) {
+              var responseData = JSON.parse(xhttp.responseText);
+              console.log("Received data:", responseData);
+              populateDropdowns(responseData);
+            } else {
+              console.error("Error:", xhttp.status, xhttp.responseText);
+            }
+          }
+        };
+
+        xhttp.open("GET", "get_openocd_config", true);
+        xhttp.send();
+      }
+
+      function populateDropdowns(jsonData) {
+        var configDropdown = document.getElementById("config");
+        var rtosDropdown = document.getElementById("rtos");
+        configDropdown.innerHTML = "";
+        rtosDropdown.innerHTML = "";
+
+        for (var i = 0; i < jsonData.configList.length; i++) {
+          var option = document.createElement("option");
+          option.text = jsonData.configList[i];
+          configDropdown.add(option);
+        }
+
+        for (var i = 0; i < jsonData.rtosList.length; i++) {
+          var option = document.createElement("option");
+          option.text = jsonData.rtosList[i];
+          rtosDropdown.add(option);
+        }
+      }
+
+      function setToDefault() {
+        if (confirm("All settings will be set to default values.\nClick OK to continue or Cancel to abort.")) {
+          sendData("/reset_to_factory", "{}");
+        }
+      }
+
+      function sendCredentials() {
+        var pacfg = document.getElementById("pacfg").value;
+        var pbcfg = document.getElementById("pbcfg").value;
+        var pccfg = document.getElementById("pccfg").value;
+        var pdcfg = document.getElementById("pdcfg").value;
+        var targetVoltage = document.getElementById("target_voltage").value;
+
+        // sw_mcu is commented out in HTML, handle safely
+        var swMcuElem = document.getElementById("sw_mcu");
+        var swMcu = swMcuElem ? swMcuElem.value : "0";
+
+        var ssid = document.getElementById("ssid").value;
+        var password = document.getElementById("password").value;
+        var wifiMode = document.querySelector('input[name="wifi_mode"]:checked').value;
+
+        // ota-url is commented out in HTML, handle safely
+        var otaUrlElem = document.getElementById("ota-url");
+        var otaUrl = otaUrlElem ? otaUrlElem.value : "";
+
+        // Fixed values: not user-configurable
+        var mcuInterface = "GPIO";
+
+        var disableUsbDapCom = true;
+
+        // Validation: SSID required for Station Mode
+        if (wifiMode === "SM" && ssid === "") {
+          var warningMessage = document.createElement("div");
+          warningMessage.style.color = "red";
+          warningMessage.textContent = "Please enter SSID for Station Mode.";
+          var formContainer = document.getElementById("wifi-tab-form");
+          formContainer.appendChild(warningMessage);
+          setTimeout(function () {
+            formContainer.removeChild(warningMessage);
+          }, 2000);
+          return;
+        }
+
+        // Fixed value: not user-configurable
+        var uartPortSel = "1";
+
+        var systemConfigJson = {
+          pacfg: pacfg,
+          pbcfg: pbcfg,
+          pccfg: pccfg,
+          pdcfg: pdcfg,
+          targetVoltage: targetVoltage,
+          swMcu: swMcu,
+          wifiMode: wifiMode,
+          ssid: ssid,
+          password: password,
+          otaUrl: otaUrl,
+          mcuInterface: mcuInterface,
+          uartPortSel: uartPortSel,
+          disableUsbDapCom: disableUsbDapCom
+        };
+        var jsonStr = JSON.stringify(systemConfigJson);
+        console.log("Sending system config JSON:", jsonStr);
+        sendData("/set_credentials", jsonStr, 'application/json');
+      }
+
+      function saveUartSettings() {
+        var data = {
+          uartBaud: document.getElementById("uart-baud").value,
+          uartDataBits: document.getElementById("uart-dbits").value,
+          uartStopBits: document.getElementById("uart-sbits").value,
+          uartParity: document.getElementById("uart-parity").value
+        };
+        sendData("/set_credentials", JSON.stringify(data), 'application/json');
+      }
+
+      function sendOpenocdConfig() {
+        var target = document.getElementById("config").value;
+        var interface = document.getElementById("interface").value;
+        var rtos = document.getElementById("rtos").value;
+        var debug = document.getElementById("debug").value;
+        var dualCore = document.getElementById("dual-core").checked;
+        var flashSupport = document.getElementById("flash-support").checked;
+        var cParam = document.getElementById("c-param").value;
+
+        console.log("Sending data to the server...");
+        console.log("Target:", target);
+        console.log("Interface:", interface);
+        console.log("Rtos:", rtos);
+        console.log("Debug level:", debug);
+        console.log("Dual-core:", dualCore);
+        console.log("Flash support:", flashSupport);
+        console.log("-c parameter:", cParam);
+
+        var configJson = { target: target, interface: interface, rtos: rtos, debug: debug, dualCore: dualCore, flash: flashSupport, cParam: cParam };
+        var jsonStr = JSON.stringify(configJson)
+        console.log("jsonStr:", jsonStr)
+        sendData("/set_openocd_config", jsonStr, 'application/json');
+      }
+
+      function sendData(path, data = null, contentType = "text/plain") {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+          if (xhttp.readyState == 4) {
+            if (xhttp.status == 200) {
+              handleSuccessResponse(xhttp.responseText);
+            } else if (xhttp.status == 0) {
+              handleConnectionClosed();
+            } else {
+              handleErrorResponse(xhttp.status, xhttp.responseText);
+            }
+          }
+        };
+        xhttp.open("POST", path, true);
+        xhttp.setRequestHeader("Content-Type", contentType);
+        xhttp.send(data);
+      }
+
+      function handleSuccessResponse(responseText) {
+        document.open();
+        document.write(responseText);
+        document.close();
+        showMessage("", responseText);
+      }
+
+      function handleConnectionClosed() {
+        showMessage("Error", "The server connection was unexpectedly terminated!");
+        document.getElementById("ota-upload-button").disabled = false;
+      }
+
+      function handleErrorResponse(status, responseText) {
+        showMessage(status + " Error!", responseText);
+        document.getElementById("ota-upload-button").disabled = false;
+      }
+
+      function showMessage(title, message) {
+        alert(title + "\n" + message);
+        location.reload();
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const dropArea = document.getElementById("ota-drop-area");
+        const fileInput = document.getElementById("ota-file-input");
+        const fileNameDisplay = document.getElementById("ota-file-name");
+        const uploadButton = document.getElementById("ota-upload-button");
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropArea.addEventListener(eventName, () => dropArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropArea.addEventListener(eventName, () => dropArea.classList.remove('dragover'), false);
+        });
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+          const dt = e.dataTransfer;
+          const file = dt.files[0];
+          handleFile(file);
+        }
+
+        dropArea.addEventListener('click', () => fileInput.click(), false);
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]), false);
+
+        function handleFile(file) {
+          const uploadButton = document.getElementById("ota-upload-button");
+          const fileNameDisplay = document.getElementById("ota-file-name");
+
+          if (file && file.name.endsWith('.bin')) {
+            selectedFile = file;
+            fileNameDisplay.textContent = file.name;
+            uploadButton.disabled = false;
+            uploadButton.style.backgroundColor = '#E11E1E';
+          } else {
+            selectedFile = null;
+            fileNameDisplay.textContent = "Please select a .bin file.";
+            uploadButton.disabled = true;
+            uploadButton.style.backgroundColor = '#ccc';
+          }
+        }
+
+        const apModeRadio = document.querySelector('input[name="wifi_mode"][value="AP"]');
+        const stModeRadio = document.getElementById('st-mode-radio');
+        const wifiCredentialsContainer = document.getElementById('wifi-credentials-container');
+        const ssidInput = document.getElementById('ssid');
+        const passwordInput = document.getElementById('password');
+        const showPasswordCheckbox = document.getElementById('show-password');
+
+        function updateWifiFieldsVisibility() {
+          // Always show credentials container
+          wifiCredentialsContainer.style.display = 'flex';
+
+          var newMode = stModeRadio.checked ? "SM" : "AP";
+
+          // Swap logic if mode changed
+          if (newMode !== g_last_wifi_mode) {
+            // Save current input to old mode storage
+            var currentSSID = ssidInput.value;
+            if (g_last_wifi_mode === "SM") {
+              g_ssid_st = currentSSID;
+            } else {
+              g_ssid_ap = currentSSID;
+            }
+
+            // Load new mode storage to input
+            if (newMode === "SM") {
+              ssidInput.value = g_ssid_st;
+              // Make required in SM
+              ssidInput.setAttribute('required', 'required');
+            } else {
+              ssidInput.value = g_ssid_ap;
+              // In AP mode, maybe optional?
+              ssidInput.removeAttribute('required');
+            }
+
+            // Clear password field as we don't sync/restore passwords security-wise
+            passwordInput.value = "";
+
+            // Update tracker
+            g_last_wifi_mode = newMode;
+          } else {
+            // Just update validation if no mode change (initial load or same click)
+            if (stModeRadio.checked) {
+              ssidInput.setAttribute('required', 'required');
+            } else {
+              ssidInput.removeAttribute('required');
+            }
+          }
+        }
+
+        apModeRadio.addEventListener('change', updateWifiFieldsVisibility);
+        stModeRadio.addEventListener('change', updateWifiFieldsVisibility);
+
+        // Initial check
+        updateWifiFieldsVisibility();
+
+        // Show Password Toggle Logic
+        if (showPasswordCheckbox) {
+          showPasswordCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+              passwordInput.type = 'text';
+            } else {
+              passwordInput.type = 'password';
+            }
+          });
+        }
+
+
+      });
+
+      function uploadOtaFirmware() {
+        if (!selectedFile) {
+          alert("Please select a firmware file first.");
+          return;
+        }
+        const formData = new FormData();
+        formData.append("firmware", selectedFile, selectedFile.name);
+
+        const progressBar = document.getElementById("ota-progress-bar");
+        const progressText = document.getElementById("ota-progress-text");
+        const progressContainer = document.getElementById("progress-container");
+        const uploadButton = document.getElementById("ota-upload-button");
+
+        // Temporarily disable the button
+        uploadButton.disabled = true;
+        uploadButton.style.backgroundColor = '#ccc';
+
+        setTimeout(() => {
+          progressContainer.style.display = "block";
+          var xhttp = new XMLHttpRequest();
+          xhttp.onreadystatechange = function () {
+            if (xhttp.readyState == 4) {
+              progressContainer.style.display = "none";
+              if (xhttp.status == 200) {
+                handleSuccessResponse(xhttp.responseText);
+              } else if (xhttp.status == 0) {
+                handleConnectionClosed();
+              } else {
+                handleErrorResponse(xhttp.status, xhttp.responseText);
+              }
+            }
+          };
+
+          xhttp.upload.onprogress = function (event) {
+            if (event.lengthComputable) {
+              const percentage = Math.round((event.loaded / event.total) * 100);
+              progressBar.value = percentage;
+              progressText.textContent = `${percentage}%`;
+            }
+          };
+
+          xhttp.open("POST", "/ota_upload", true);
+          xhttp.send(formData);
+        }, 50);
+      }
+
+      let ws;
+      const terminalDisplay = document.getElementById('terminal-display');
+      const terminalInput = document.getElementById('terminal-input');
+      const connectButton = document.getElementById('connect-button');
+      const connectLogButton = document.getElementById('connect-log-button');
+      const disconnectButton = document.getElementById('disconnect-button');
+      var g_log_monitor_mode = false;
+
+      function connect() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          terminalDisplay.textContent += "Already connected. Switching to UART mode.\n";
+          // Enforce UART mode as requested: uncheck log monitor and disable logs
+          document.getElementById('esp32-log-monitor').checked = false;
+          ws.send("LOG_OFF");
+          return;
+        }
+
+        // Ensure log monitor is unchecked on new connection ONLY if it wasn't the trigger
+        // Actually, we want to respect the checkbox. If it's already checked (by user action), let's keep it.
+        // document.getElementById('esp32-log-monitor').checked = false;
+
+        terminalDisplay.textContent = "Connecting...\n";
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onopen = () => {
+          terminalDisplay.textContent = "Connected.\n";
+          terminalInput.disabled = false;
+          terminalInput.placeholder = "Type here...";
+          connectButton.disabled = false; // Allow clicking again to reset mode
+          // connectButton.textContent = "Switch to UART"; // Optional enhancement?
+          disconnectButton.disabled = false;
+          terminalInput.focus();
+
+          // Check if Log Monitor is requested
+          if (g_log_monitor_mode) {
+            // Add a small delay to ensure the server is ready and stream buffer is cleared
+            setTimeout(() => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send("LOG_ON");
+                terminalDisplay.innerHTML += '<span style="color:cyan">ESP32 Log Monitor Enabled</span>\n';
+                terminalInput.disabled = true;
+              }
+            }, 50);
+          } else {
+            ws.send("LOG_OFF"); // Ensure logs are off by default
+            terminalInput.disabled = false;
+          }
+        };
+
+        ws.onmessage = (event) => {
+          terminalDisplay.innerHTML += ansiToHtml(event.data);
+          terminalDisplay.scrollTop = terminalDisplay.scrollHeight;
+        };
+
+        ws.onclose = () => {
+          terminalDisplay.textContent += "\nDisconnected.\n";
+          terminalInput.disabled = true;
+          connectButton.disabled = false;
+          connectLogButton.disabled = false;
+          disconnectButton.disabled = true;
+          terminalInput.placeholder = "Press connect to continue...";
+        };
+
+        ws.onerror = (error) => {
+          terminalDisplay.textContent += `WebSocket Error: ${error}\n`;
+        };
+      }
+
+      function disconnect() {
+        if (ws) {
+          ws.close();
+          terminalInput.placeholder = "Press connect to continue...";
+        }
+      }
+
+      function sendChar(char) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(char);
+        } else {
+          terminalDisplay.innerHTML += '<span style="color:red">Not connected. Please click Connect first.</span>\n';
+          terminalDisplay.scrollTop = terminalDisplay.scrollHeight;
+        }
+      }
+
+
+
+      function ansiToHtml(text) {
+        // Basic ANSI to HTML converter
+        // Handles:
+        // - Colors: 30-37 (foreground), 90-97 (bright foreground)
+        // - Styles: 1 (Bold), 0 (Reset)
+
+        // Escape HTML entities to prevent XSS and rendering issues from content
+        text = text.replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        const colors = {
+          30: 'black', 31: 'red', 32: 'green', 33: 'yellow', 34: 'blue', 35: 'magenta', 36: 'cyan', 37: 'white',
+          90: 'gray', 91: 'lightcoral', 92: 'lightgreen', 93: 'lightyellow', 94: 'lightblue', 95: 'lightmagenta', 96: 'lightcyan', 97: 'white'
+        };
+
+        // This regex looks for \x1b[ ... m
+        // Updated to handle empty sequence \x1b[m which is equivalent to \x1b[0m
+        return text.replace(/\x1b\[([\d;]*)m/g, function (match, codes) {
+          let style = "";
+          if (codes === "") {
+            codes = "0";
+          }
+          let codeArray = codes.split(';');
+
+          for (let code of codeArray) {
+            let c = parseInt(code);
+            if (c === 0) {
+              return "</span>";
+            } else if (c === 1) {
+              style += "font-weight:bold;";
+            } else if (colors[c]) {
+              style += `color:${colors[c]};`;
+            }
+          }
+
+          if (style) {
+            return `<span style="${style}">`;
+          }
+          return "";
+        });
+      }
+
+      connectButton.addEventListener('click', function () {
+        // Check Port B configuration first
+        var pbConfig = document.getElementById("pbcfg").value;
+        if (pbConfig != "1") {
+          alert("Please power off and connect Port B UART to device UART, then power on and set Port B Configuration to \"Vtarget + UART + SReset\" in System Configurations page, then go to this page and click Connect UART.");
+          return;
+        }
+
+        // Validation:
+        // 1. UART Connection must be "1" (Web Terminal)
+        // 2. USB Bridged UART Logging must be Disabled (false)
+
+        var uartConnection = document.querySelector('input[name="uart_connection"]:checked').value;
+        var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
+        var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
+
+        // Check against current UI state OR confirming saved state
+        if (uartConnection !== "1" || usbLogging === true || g_last_uart_connection !== "1" || g_last_usb_logging === true) {
+          alert("Need to set 'UART Connection' to 'Web Terminal' and disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
+          return;
+        }
+
+        g_log_monitor_mode = false;
+        connect();
+        connectButton.disabled = true;
+        connectLogButton.disabled = true;
+      });
+
+      connectLogButton.addEventListener('click', function () {
+        // Validation:
+        // 1. UART Connection must be "1" (Web Terminal)
+        // 2. USB Bridged UART Logging must be Disabled (false)
+
+        var uartConnection = document.querySelector('input[name="uart_connection"]:checked').value;
+        var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
+        var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
+
+        // Check against current UI state OR confirming saved state
+        if (uartConnection !== "1" || usbLogging === true || g_last_uart_connection !== "1" || g_last_usb_logging === true) {
+          alert("Need to set 'UART Connection' to 'Web Terminal' and disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
+          return;
+        }
+
+        g_log_monitor_mode = true;
+        connect();
+        connectButton.disabled = true;
+        connectLogButton.disabled = true;
+      });
+
+      disconnectButton.addEventListener('click', disconnect);
+
+      // Removed checkbox listener
+
+      function handleDisableUsbDapChange(checkbox) {
+        var uartUsbRadio = document.querySelector('input[name="uart_connection"][value="0"]');
+        var uartWebRadio = document.querySelector('input[name="uart_connection"][value="1"]');
+
+        if (checkbox.checked) {
+          // Force Web Terminal
+          uartWebRadio.checked = true;
+          // Disable UART connection radios
+          uartUsbRadio.disabled = true;
+          uartWebRadio.disabled = true;
+        } else {
+          // Enable UART connection radios
+          uartUsbRadio.disabled = false;
+          uartWebRadio.disabled = false;
+        }
+      }
+
+      terminalInput.addEventListener('keydown', (event) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          // Allow typing if not connected? Or warn?
+          // For now, warn if they try to type functionality
+          if (event.key.length === 1 || event.key === 'Enter') {
+            sendChar(''); // Trigger warning
+          }
+          // Don't prevent default, allow them to see they are typing into void? 
+          // Or prevent to be strict. Let's act strict.
+          event.preventDefault();
+          return;
+        }
+
+        let charToSend = null;
+        if (event.key === 'Enter') {
+          charToSend = '\n';
+        } else if (event.key === 'Backspace') {
+          charToSend = '\x08';
+        } else if (event.key === 'Tab') {
+          charToSend = '\t';
+          event.preventDefault(); // Prevent focus switch
+        } else if (event.key.length === 1) { // Normal char
+          charToSend = event.key;
+        }
+
+        if (charToSend !== null) {
+          ws.send(charToSend);
+
+          // Logic for local display (Input Box):
+          if (event.key === 'Enter') {
+            // Clear input on Enter to simulate "sending" a command line
+            terminalInput.value = '';
+            event.preventDefault();
+          } else if (event.key === 'Tab') {
+            // Prevent tab focus switch
+            event.preventDefault();
+          } else {
+            // For normal chars and Backspace, ALLOW default behavior
+            // so they appear/disappear in the input box.
+            // NO event.preventDefault();
+          }
+        }
+      });
+    </script>
+</body>
+
+</html>

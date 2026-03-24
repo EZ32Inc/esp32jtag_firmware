@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logic Analyzer</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      font-family: sans-serif;
+    }
+
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    canvas {
+      display: block;
+      background-color: #0f172a;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    #overlayCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      /* Let clicks pass through to the waveform canvas */
+      z-index: 5;
+      background-color: transparent;
+      /* Ensure overlay is transparent */
+    }
+
+    .channel-input {
+      position: absolute;
+      background: #000;
+      color: #fff;
+      border: 1px solid #555;
+      font-size: 14px;
+      font-family: sans-serif;
+      padding: 2px;
+      width: 60px;
+      z-index: 10;
+    }
+
+    .channel-checkbox {
+      position: absolute;
+      z-index: 11;
+      transform: scale(1.2);
+      cursor: pointer;
+    }
+
+    #renamePrompt.dragging {
+      pointer-events: none;
+    }
+
+    .control-button {
+      position: absolute;
+      top: 0px;
+      z-index: 20;
+      font-size: 16px;
+      color: white;
+      border: 1px solid #334155;
+      padding: 0px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #334155;
+      margin-left: 2px;
+      white-space: nowrap;
+      /* Prevent text wrapping */
+    }
+
+    .popup-overlay {
+      display: none;
+      /* hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .popup-content {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 20px;
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.5);
+      color: #334155;
+    }
+
+    .popup-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    #channelSettingsPrompt {
+      position: absolute;
+      background: #1e293b;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      z-index: 12;
+      padding: 5px;
+      font-family: sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .trigger-control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      color: #334155;
+    }
+
+    #settingsPopup select {
+      position: static;
+      /* prevent absolute positioning */
+      z-index: auto;
+      /* don’t float above everything */
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+
+    #settingsPopup select:hover {
+      background: #f1f5f9;
+    }
+
+    #statusBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #1e293b;
+      color: #94a3b8;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-top: 1px solid #334155;
+      z-index: 100;
+      display: flex;
+      gap: 20px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+
+<body>
+  <div
+    style="position: absolute; top: 0; left: 0; width: 100%; height: 30px; display: flex; align-items: center; gap: 5px; padding-left: 5px; z-index: 20;">
+    <button id="settingsButton" class="control-button"
+      style="position: relative; top: auto; left: auto; margin: 0;">⚙️</button>
+    <button id="measureModeToggle" class="control-button"
+      style="position: relative; top: auto; left: auto; margin: 0;">Measure: OFF</button>
+    <button id="saveCaptureButton" class="control-button"
+      style="position: relative; top: auto; left: auto; margin: 0;">Save Capture</button>
+    <button id="loadCaptureButton" class="control-button"
+      style="position: relative; top: auto; left: auto; margin: 0;">Load Capture</button>
+    <button id="instantCaptureBtn" class="control-button" style="position: relative; top: auto; left: auto; margin: 0;">
+      Instant Capture
+    </button>
+    <button id="startBtn" class="control-button" style="position: relative; top: auto; left: auto; margin: 0;">
+      Start
+    </button>
+  </div>
+  <input type="file" id="fileInput" style="display:none">
+  <div id="settingsPopup" class="popup-overlay">
+    <div class="popup-content">
+      <h2>Settings</h2>
+
+      <label style="display: inline-block; margin-top: 10px;">
+        Sample Rate:
+        <select id="sampleRateInput" style="width: 120px;">
+          <option value="264000000">264M</option>
+          <option value="132000000">132M</option>
+          <option value="66000000">66M</option>
+          <option value="33000000">33M</option>
+          <option value="22000000">22M</option>
+          <option value="16500000">16.5M</option>
+          <option value="11000000">11M</option>
+          <option value="6000000">6M</option>
+          <option value="3000000">3M</option>
+          <option value="2000000">2M</option>
+          <option value="1000000">1M</option>
+          <option value="500000">0.5M</option>
+          <option value="260000">0.26M</option>
+        </select>
+      </label>
+      <br><br>
+
+      <div class="trigger-control-row">
+        <span>Trigger Position (%):</span>
+        <input type="number" id="triggerPositionInput" value="50" min="0" max="100" style="width: 50px;">
+      </div>
+
+      <div class="trigger-control-row">
+        <span>Trigger ON/OFF:</span>
+        <button id="triggerOnToggle" class="control-button" style="position: static; padding: 2px 8px;">Trigger
+          ON</button>
+      </div>
+
+      <div class="trigger-control-row">
+        <span>Trigger Mode:</span>
+        <button id="triggerModeToggle" class="control-button" style="position: static; padding: 2px 8px;">OR</button>
+      </div>
+
+      <div class="trigger-control-row">
+        <span>Capture Internal Test Signal:</span>
+        <button id="testSignalToggle" class="control-button" style="position: static; padding: 2px 8px;">OFF</button>
+      </div>
+
+      <h3>Trigger Settings</h3>
+      <div id="triggerSettingsContainer" style="max-height: 300px; overflow-y: auto;">
+        <!-- Generated by JavaScript -->
+      </div>
+
+      <div class="popup-actions">
+        <button id="saveSettingsButton" class="control-button" style="position: static;">Save</button>
+        <button id="cancelSettingsButton" class="control-button" style="position: static;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="container">
+    <canvas id="waveformCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+  </div>
+
+  <div id="statusBar">
+    <!-- Status info will be injected here -->
+  </div>
+
+  <script>
+    const API_BASE =
+      (location.hostname === "localhost")
+        ? "http://localhost:8001"
+        : "";  // ESP32 uses relative paths
+
+    class LogicAnalyzer {
+      constructor() {
+        this.ESP32_SERVER_URL = `${API_BASE}/capture_data`;
+
+        // DOM Elements
+        this.container = document.getElementById('container');
+        this.canvas = document.getElementById('waveformCanvas');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base layer
+        this.overlayCanvas = document.getElementById('overlayCanvas');
+        this.overlayCtx = this.overlayCanvas.getContext('2d');
+
+        this.startButton = document.getElementById('startBtn');
+        this.instantCaptureButton = document.getElementById('instantCaptureBtn');
+        this.saveCaptureButton = document.getElementById('saveCaptureButton');
+        this.loadCaptureButton = document.getElementById('loadCaptureButton');
+        this.fileInput = document.getElementById('fileInput');
+        this.measureModeToggle = document.getElementById('measureModeToggle');
+        this.triggerPositionInput = document.getElementById('triggerPositionInput');
+        this.settingsButton = document.getElementById("settingsButton");
+        this.settingsPopup = document.getElementById("settingsPopup");
+        this.saveSettingsButton = document.getElementById("saveSettingsButton");
+        this.cancelSettingsButton = document.getElementById("cancelSettingsButton");
+        this.sampleRateInput = document.getElementById("sampleRateInput");
+        this.triggerModeToggle = document.getElementById("triggerModeToggle");
+        this.triggerOnToggle = document.getElementById("triggerOnToggle");
+        this.testSignalToggle = document.getElementById("testSignalToggle");
+        this.statusBar = document.getElementById("statusBar");
+
+        // Event Listeners for Canvas
+        this.canvas.addEventListener('mouseleave', () => {
+          this.isDragging = false;
+          this.hoverState.active = false;
+          this.requestRender();
+        });
+
+        this.canvas.addEventListener('mousemove', (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          if (this.isDragging) {
+            const dx = x - this.dragStartX;
+            const samplesMoved = Math.round(dx * (this.samplesPerScreen / this.canvas.width));
+            this.offset = Math.max(0, this.dragStartOffset - samplesMoved);
+            this.requestRender();
+          } else {
+            // Hover logic
+            this.hoverState.active = true;
+            this.hoverState.x = x;
+            this.hoverState.y = y;
+
+            // Determine which channel is being hovered
+            let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+            this.hoverState.channel = -1;
+            for (let i = 0; i < this.numChannels; i++) {
+              if (y >= currentY && y <= currentY + this.channelHeights[i]) {
+                this.hoverState.channel = i;
+                break;
+              }
+              currentY += this.channelHeights[i] + 5;
+            }
+
+            // Determine sample index
+            const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+            if (x >= this.labelOffset) {
+              const relativeX = x - this.labelOffset;
+              const sampleOffset = Math.round(relativeX / xscale);
+              this.hoverState.sampleIndex = this.offset + sampleOffset;
+            } else {
+              this.hoverState.sampleIndex = -1;
+            }
+
+            this.requestDynamicRender();
+          }
+        });
+        this.testSignalToggle = document.getElementById("testSignalToggle");
+
+        // Constants
+        this.DEFAULT_SAMPLES_PER_SCREEN = 64;
+        this.MIN_SAMPLES_PER_SCREEN = 8;
+        this.waveformOffset = 10;
+        this.timeAxisHeight = 25;
+        this.topBarHeight = 30; // Reduced space for buttons
+        this.FAST_ZOOM_MULTIPLIER = 5;
+
+        // State
+        this.samplesPerScreen = this.DEFAULT_SAMPLES_PER_SCREEN;
+        this.sampleRateHz = 250_000_000;
+        this.numChannels = 16;
+        this.channelNames = Array.from({ length: this.numChannels }, (_, i) => `${i + 1}`);
+        this.channelVisible = Array(this.numChannels).fill(true);
+        this.editingChannel = -1;
+        this.statusIntervalId = null;
+        this.data = [];
+        this.offset = 0;
+        this.isDragging = false;
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartOffset = 0;
+        this.hoverState = { active: false, x: 0, y: 0, channel: -1, sampleIndex: -1 };
+        this.isDraggingVerticalBar = false;
+        this.labelOffset = 45;
+        this.defaultColorPalette = ['#2ecc71', '#e74c3c', '#3498db', '#f39c12', '#9b59b6', '#1abc9c', '#f1c40f', '#e67e22'];
+        this.colors = Array.from({ length: this.numChannels }, (_, i) => this.defaultColorPalette[i % this.defaultColorPalette.length]);
+        this.markers = [];
+        this.channelHeights = [];
+        this.draggingDividerIndex = -1;
+        this.dragStartY = 0;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.triggerModeEnabled = false;
+        this.triggerPositionPercent = 25;
+        this.triggerFound = false;
+        this.triggerFound = false;
+        this.actualTriggerPosition = -1;
+        this.measureMode = false;
+        this.selection = {
+          active: false,
+          startX: 0,
+          endX: 0,
+          channel: -1,
+          startSample: -1,
+          startSample: -1,
+          endSample: -1
+        };
+        this.dataSource = "Hardware";
+        this.lastMouseX = 0; // Track last mouse position for keyboard zoom
+
+        this.settings = {
+          sampleRate: 264000000,
+          triggerEnabled: true,
+          triggerModeOR: true,
+          captureInternalTestSignal: false,
+          triggerPosition: 50,
+          channels: Array(16).fill('disabled')
+        };
+
+        // Bind methods
+        this.globalKeyHandler = this.globalKeyHandler.bind(this);
+        this.checkStatus = this.checkStatus.bind(this);
+        this.handleResize = this.handleResize.bind(this);
+
+        this.wifiSpeed = "---";
+
+        this.init();
+      }
+
+      init() {
+        this.bindEvents();
+        // Initialize canvas size to match display size
+        this.canvas.width = this.canvas.clientWidth;
+        this.canvas.height = this.canvas.clientHeight;
+        this.overlayCanvas.width = this.canvas.width;
+        this.overlayCanvas.height = this.canvas.height;
+
+        this.computeChannelHeights();
+        this.updateCanvasSize();
+
+        this.renderPending = false;
+        this.dynamicRenderPending = false;
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+
+      requestStaticRender() {
+        if (!this.renderPending) {
+          this.renderPending = true;
+          requestAnimationFrame(() => {
+            this.drawStaticContent();
+            this.renderPending = false;
+          });
+        }
+      }
+
+      requestDynamicRender() {
+        if (!this.dynamicRenderPending) {
+          this.dynamicRenderPending = true;
+          requestAnimationFrame(() => {
+            this.drawDynamicContent();
+            this.dynamicRenderPending = false;
+          });
+        }
+      }
+
+      // Alias for compatibility with old calls, or for full refresh
+      requestRender() {
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+      bindEvents() {
+        // Settings Modal
+        this.settingsButton.addEventListener("click", () => {
+          this.renderTriggerSettings();
+          this.sampleRateInput.value = this.settings.sampleRate;
+          this.triggerPositionInput.value = this.settings.triggerPosition;
+          this.triggerModeToggle.textContent = this.settings.triggerModeOR ? "OR" : "AND";
+          this.triggerOnToggle.textContent = this.settings.triggerEnabled ? "Trigger ON" : "Trigger OFF";
+          this.testSignalToggle.textContent = this.settings.captureInternalTestSignal ? "ON" : "OFF";
+          this.settingsPopup.style.display = "flex";
+        });
+
+        this.cancelSettingsButton.addEventListener("click", () => {
+          this.settingsPopup.style.display = "none";
+        });
+
+        this.triggerModeToggle.addEventListener("click", () => {
+          this.triggerModeToggle.textContent = (this.triggerModeToggle.textContent === "OR") ? "AND" : "OR";
+        });
+
+        this.triggerOnToggle.addEventListener("click", () => {
+          this.triggerOnToggle.textContent = (this.triggerOnToggle.textContent === "Trigger OFF") ? "Trigger ON" : "Trigger OFF";
+        });
+
+        this.testSignalToggle.addEventListener("click", () => {
+          this.testSignalToggle.textContent = (this.testSignalToggle.textContent === "OFF") ? "ON" : "OFF";
+        });
+
+        this.settingsPopup.addEventListener("click", (e) => {
+          if (e.target === this.settingsPopup) {
+            this.settingsPopup.style.display = "none";
+          }
+        });
+
+        this.saveSettingsButton.addEventListener("click", () => {
+          this.settings.sampleRate = parseInt(this.sampleRateInput.value, 10);
+          this.settings.triggerPosition = parseInt(this.triggerPositionInput.value, 10);
+          this.settings.triggerModeOR = (this.triggerModeToggle.textContent === "OR");
+          this.settings.triggerEnabled = (this.triggerOnToggle.textContent === "Trigger ON");
+          this.settings.captureInternalTestSignal = (this.testSignalToggle.textContent === "ON");
+
+          for (let i = 0; i < this.numChannels; i++) {
+            const select = document.getElementById(`triggerCH${i + 1}`);
+            if (select) {
+              this.settings.channels[i] = select.value;
+            }
+          }
+
+          console.log("Updated settings:", this.settings);
+          this.updateSampleRate(this.settings.sampleRate);
+          this.updateTrigger();
+          this.updateStatusBar();
+
+          this.sendSettingsToServer();
+
+          this.settingsPopup.style.display = "none";
+        });
+
+        // Canvas Events
+        this.canvas.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (this.measureMode) {
+            this.selection.active = false;
+            this.requestDynamicRender();
+          }
+          this.canvas.style.cursor = 'default';
+        });
+
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+
+        // Global Events
+        document.addEventListener('keydown', this.globalKeyHandler);
+        window.addEventListener('resize', this.handleResize);
+
+        // Start Button
+        this.startButton.addEventListener('click', () => {
+          this.startCapture();
+        });
+
+        // Instant Capture Button
+        this.instantCaptureButton.addEventListener('click', () => {
+          this.instantCapture();
+        });
+
+        // Save Capture Button
+        this.saveCaptureButton.addEventListener('click', () => {
+          this.saveCapture();
+        });
+
+        // Load Capture Button
+        this.loadCaptureButton.addEventListener('click', () => {
+          this.fileInput.click();
+        });
+
+        // File Input
+        this.fileInput.addEventListener('change', (e) => {
+          if (e.target.files.length > 0) {
+            this.loadCapture(e.target.files[0]);
+            this.fileInput.value = ''; // Reset input
+          }
+        });
+
+        // Measure Mode Toggle
+        this.measureModeToggle.addEventListener('click', () => {
+          this.measureMode = !this.measureMode;
+          this.measureModeToggle.textContent = this.measureMode ? "Measure: ON" : "Measure: OFF";
+          this.measureModeToggle.style.backgroundColor = this.measureMode ? "#475569" : "#334155";
+          this.selection.active = false; // Clear selection when toggling
+          this.requestDynamicRender();
+        });
+
+      }
+
+      updateSampleRate(rate) {
+        console.log("Updating sample rate to", rate);
+        this.sampleRateHz = rate;
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+      sendSettingsToServer() {
+        // Send settings to backend
+        fetch(`${API_BASE}/la_configure`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(this.settings)
+        })
+          .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+          })
+          .catch(error => {
+            console.error('Error saving settings:', error);
+            alert(`Failed to save settings: ${error.message}`);
+          });
+      }
+
+      updateTrigger() {
+        console.log("Trigger:", this.settings.triggerEnabled, "at", this.settings.triggerPosition, "%");
+        this.requestDynamicRender();
+      }
+
+      handleResize() {
+        this.canvas.width = this.canvas.clientWidth;
+        this.canvas.height = this.canvas.clientHeight;
+        this.overlayCanvas.width = this.canvas.width;
+        this.overlayCanvas.height = this.canvas.height;
+        this.computeChannelHeights();
+        this.updateCanvasSize();
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+      startStatusPolling() {
+        console.log('Starting status polling...');
+        if (this.statusIntervalId) clearInterval(this.statusIntervalId);
+        this.statusIntervalId = setInterval(this.checkStatus, 200);
+        console.log('Status polling started, ID:', this.statusIntervalId);
+      }
+
+      async startCapture() {
+        // ... (existing implementation) ...
+      }
+
+      async instantCapture() {
+        console.log('Starting Instant Capture...');
+        this.instantCaptureButton.textContent = 'Capturing...';
+        this.instantCaptureButton.disabled = true;
+        this.wifiSpeed = "---";
+        this.updateStatusBar();
+
+        try {
+          const response = await fetch(`${API_BASE}/instant_capture`);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+          const startTime = performance.now();
+          const buffer = await response.arrayBuffer();
+          const endTime = performance.now();
+
+          const durationSec = (endTime - startTime) / 1000;
+          const bits = buffer.byteLength * 8;
+          const speedMbps = (bits / durationSec) / 1000000;
+          this.wifiSpeed = speedMbps.toFixed(2) + " Mbps";
+          this.updateStatusBar();
+
+          this.processCapturedData(buffer);
+
+          console.log('Instant Capture successful!');
+        } catch (error) {
+          console.error('Instant Capture failed:', error);
+          alert(`Instant Capture failed: ${error.message}`);
+        } finally {
+          this.instantCaptureButton.textContent = 'Instant Capture';
+          this.instantCaptureButton.disabled = false;
+        }
+      }
+
+      processCapturedData(buffer) {
+        this.data = [];
+        const bufferSize = buffer.byteLength;
+        console.log(`Received ${bufferSize} bytes from ESP32.`);
+        const dataArray = new Uint8Array(buffer);
+        this.dataSource = "Hardware";
+
+        for (let n = 0; n + 4 < dataArray.byteLength; n += 2) {
+          const lowByte = dataArray[n + 2];
+          const highByte = dataArray[n + 1];
+          const word = (highByte << 8) | lowByte;
+          this.data.push(word);
+        }
+
+        console.log(`Fetched data length: ${this.data.length}`);
+        this.samplesPerScreen = this.data.length || this.DEFAULT_SAMPLES_PER_SCREEN;
+        this.offset = 0;
+        this.updateCanvasSize();
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+      saveCapture() {
+        if (!this.data || this.data.length === 0) {
+          alert("No data to save!");
+          return;
+        }
+
+        const metadata = {
+          settings: this.settings,
+          sampleRateHz: this.sampleRateHz,
+          actualTriggerPosition: this.actualTriggerPosition,
+          numChannels: this.numChannels,
+          channelNames: this.channelNames,
+          colors: this.colors,
+          channelVisible: this.channelVisible,
+          samplesPerScreen: this.samplesPerScreen,
+          offset: this.offset
+        };
+
+        const jsonString = JSON.stringify(metadata);
+        const jsonBytes = new TextEncoder().encode(jsonString);
+        const dataBytes = new Uint16Array(this.data);
+
+        // Header: Magic (4) + JSON Len (4) + Data Len (4)
+        const headerSize = 4 + 4 + 4;
+        const totalSize = headerSize + jsonBytes.length + dataBytes.byteLength;
+        const buffer = new ArrayBuffer(totalSize);
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+
+        // Magic "LA01"
+        uint8View.set([76, 65, 48, 49], 0);
+
+        // JSON Length
+        view.setUint32(4, jsonBytes.length, true); // Little endian
+
+        // Data Length (number of samples, not bytes)
+        view.setUint32(8, this.data.length, true);
+
+        // JSON Data
+        uint8View.set(jsonBytes, 12);
+
+        // Waveform Data
+        const dataOffset = 12 + jsonBytes.length;
+        // We need to copy Uint16Array to Uint8Array buffer
+        const dataUint8 = new Uint8Array(dataBytes.buffer);
+        uint8View.set(dataUint8, dataOffset);
+
+        const blob = new Blob([buffer], { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `capture_${new Date().toISOString().replace(/[:.]/g, "-")}.bin`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      loadCapture(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const buffer = e.target.result;
+            const view = new DataView(buffer);
+            const uint8View = new Uint8Array(buffer);
+
+            // Check Magic "LA01"
+            if (uint8View[0] !== 76 || uint8View[1] !== 65 || uint8View[2] !== 48 || uint8View[3] !== 49) {
+              throw new Error("Invalid file format (Magic mismatch)");
+            }
+
+            const jsonLen = view.getUint32(4, true);
+            const dataLen = view.getUint32(8, true);
+
+            const jsonBytes = uint8View.subarray(12, 12 + jsonLen);
+            const jsonString = new TextDecoder().decode(jsonBytes);
+            const metadata = JSON.parse(jsonString);
+
+            // Restore Metadata
+            this.settings = metadata.settings;
+            this.sampleRateHz = metadata.sampleRateHz;
+            this.actualTriggerPosition = metadata.actualTriggerPosition;
+            this.numChannels = metadata.numChannels;
+            this.channelNames = metadata.channelNames;
+            this.colors = metadata.colors;
+            this.channelVisible = metadata.channelVisible;
+            this.samplesPerScreen = metadata.samplesPerScreen;
+            this.offset = metadata.offset;
+
+            // Restore Data
+            const dataOffset = 12 + jsonLen;
+            const dataBytes = buffer.slice(dataOffset, dataOffset + dataLen * 2);
+            const uint16Data = new Uint16Array(dataBytes);
+            this.data = Array.from(uint16Data);
+            this.dataSource = file.name;
+
+            console.log("Loaded capture:", metadata);
+            console.log("Data length:", this.data.length);
+
+            // Update UI
+            this.updateStatusBar();
+            this.updateCanvasSize();
+            this.requestStaticRender();
+            this.requestDynamicRender();
+
+            // Clear old channel inputs/checkboxes to force redraw of UI elements
+            this.clearOldInputs();
+            this.clearOldCheckboxes();
+
+            alert("Capture loaded successfully!");
+
+          } catch (error) {
+            console.error("Error loading capture:", error);
+            alert(`Failed to load capture: ${error.message}`);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      updateStatusBar() {
+        if (!this.statusBar) return;
+
+        const sampleRate = parseInt(this.settings.sampleRate);
+        let rateStr = "";
+        if (sampleRate >= 1000000) {
+          rateStr = (sampleRate / 1000000).toFixed(3).replace(/\.?0+$/, "") + " MHz";
+        } else if (sampleRate >= 1000) {
+          rateStr = (sampleRate / 1000).toFixed(3).replace(/\.?0+$/, "") + " kHz";
+        } else {
+          rateStr = sampleRate + " Hz";
+        }
+
+        const triggerMode = this.settings.triggerModeOR ? "OR" : "AND";
+        const triggerStatus = this.settings.triggerEnabled ? "Enabled" : "Disabled";
+        const testSignal = this.settings.captureInternalTestSignal ? "On" : "Off";
+
+        this.statusBar.innerHTML = `
+          <span>Sample Rate: <span style="color: #fff">${rateStr}</span></span>
+          <span>Trigger: <span style="color: #fff">${triggerStatus}</span></span>
+          <span>Mode: <span style="color: #fff">${triggerMode}</span></span>
+          <span>Test Signal: <span style="color: #fff">${testSignal}</span></span>
+          <span>WiFi Speed: <span style="color: #fff">${this.wifiSpeed}</span></span>
+          <span style="margin-left: auto;">Data Source: <span style="color: #fff">${this.dataSource}</span></span>
+        `;
+      }
+
+      async checkStatus() {
+        // If polling was cancelled (statusIntervalId is null), stop immediately
+        if (!this.statusIntervalId) {
+          console.log('checkStatus called but statusIntervalId is null. Ignoring.');
+          return;
+        }
+
+        console.log('checkStatus polling...');
+
+        try {
+          const response = await fetch(`${API_BASE}/la_status`);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+          // Check again in case cancelled during fetch
+          if (!this.statusIntervalId) return;
+
+          const status = await response.json();
+          if (status.triggered) {
+            console.log('LA triggered! Stopping status poll and fetching data...');
+            // Log new fields from the ESP32 JSON
+            console.log('LA wr_addr_stop_position =', status.wr_addr_stop_position);
+            console.log('LA trigger_position      =', status.trigger_position);
+
+            if (typeof status.trigger_position === 'number') {
+              this.actualTriggerPosition = status.trigger_position;
+            }
+
+            clearInterval(this.statusIntervalId);
+            this.statusIntervalId = null;
+            this.fetchCapturedData();
+            this.startButton.textContent = 'Start';
+          } else {
+            console.log('LA not triggered yet...');
+          }
+        } catch (error) {
+          console.error('Failed to fetch status:', error);
+          if (this.statusIntervalId) {
+            clearInterval(this.statusIntervalId);
+            this.statusIntervalId = null;
+          }
+          this.startButton.textContent = 'Start';
+        }
+      }
+
+      async startCapture() {
+        console.log('startCapture called');
+        this.wifiSpeed = "---";
+        // If already polling (capture active), treat this as a cancel request
+        if (this.statusIntervalId) {
+          console.log('Cancelling capture... Clearing interval ID:', this.statusIntervalId);
+          clearInterval(this.statusIntervalId);
+          this.statusIntervalId = null;
+          this.startButton.textContent = 'Start';
+          console.log('Capture cancelled.');
+          return;
+        }
+
+        try {
+          console.log('Fetching /la_start_capture...');
+          const response = await fetch(`${API_BASE}/la_start_capture`);
+          console.log('Response received:', response.status);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+          const status = await response.json();
+          console.log('Status JSON:', status);
+          if (status.capture_started) {
+            console.log('Logic Analyzer Capture started!');
+            this.startButton.textContent = 'Waiting trigger. Click to cancel';
+            this.dataSource = "Hardware"; // Reset data source
+            this.updateStatusBar(); // Update UI immediately
+            this.startStatusPolling();
+          } else {
+            console.log('Logic Analyzer cannot start capture correctly');
+            this.startButton.textContent = 'Start';
+            alert('Failed to start capture.');
+          }
+        } catch (error) {
+          console.error('Failed to fetch status:', error);
+          if (this.statusIntervalId) {
+            clearInterval(this.statusIntervalId);
+            this.statusIntervalId = null;
+          }
+          this.startButton.textContent = 'Start';
+          alert(`Error starting capture: ${error.message}`);
+        }
+      }
+
+      fetchCapturedData() {
+        let startTime = 0;
+        fetch(this.ESP32_SERVER_URL)
+          .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            startTime = performance.now();
+            return response.arrayBuffer();
+          })
+          .then(buffer => {
+            const endTime = performance.now();
+            const durationSec = (endTime - startTime) / 1000;
+            const bits = buffer.byteLength * 8;
+            const speedMbps = (bits / durationSec) / 1000000;
+            this.wifiSpeed = speedMbps.toFixed(2) + " Mbps";
+            this.updateStatusBar();
+
+            this.processCapturedData(buffer);
+          })
+          .catch(error => {
+            console.error('Fetch error:', error);
+            alert(`Error fetching data: ${error.message}`);
+          })
+          .finally(() => {
+            this.startButton.disabled = false;
+          });
+      }
+
+      computeChannelHeights() {
+        // Use container height to determine available space, ensuring we fill the screen
+        const statusBarHeight = this.statusBar.offsetHeight;
+        const availableHeight = this.container.clientHeight - this.waveformOffset * 2 - this.timeAxisHeight - statusBarHeight - this.topBarHeight;
+        const totalSpacing = 5 * (this.numChannels - 1);
+        const channelHeight = Math.floor((availableHeight - totalSpacing) / this.numChannels);
+        this.channelHeights = Array(this.numChannels).fill(Math.max(25, channelHeight));
+      }
+
+      updateCanvasSize() {
+        const totalHeight = this.topBarHeight + this.timeAxisHeight + this.waveformOffset + this.channelHeights.reduce((sum, h) => sum + h + 5, -5) + this.waveformOffset;
+        this.canvas.style.height = totalHeight + 'px';
+        this.canvas.height = totalHeight;
+        this.canvas.width = this.canvas.clientWidth;
+        this.overlayCanvas.height = totalHeight;
+        this.overlayCanvas.width = this.overlayCanvas.clientWidth;
+      }
+
+      pushUndoState() {
+        this.undoStack.push({
+          channelNames: [...this.channelNames],
+          colors: [...this.colors],
+          channelHeights: [...this.channelHeights],
+          labelOffset: this.labelOffset,
+          offset: this.offset,
+          samplesPerScreen: this.samplesPerScreen,
+          channelVisible: [...this.channelVisible],
+        });
+        this.redoStack.length = 0;
+        if (this.undoStack.length > 100) this.undoStack.shift();
+      }
+
+      undo() {
+        if (this.undoStack.length === 0) return;
+        this.redoStack.push({
+          channelNames: [...this.channelNames],
+          colors: [...this.colors],
+          channelHeights: [...this.channelHeights],
+          labelOffset: this.labelOffset,
+          offset: this.offset,
+          samplesPerScreen: this.samplesPerScreen,
+          channelVisible: [...this.channelVisible],
+        });
+        const prev = this.undoStack.pop();
+        this.restoreState(prev);
+      }
+
+      redo() {
+        if (this.redoStack.length === 0) return;
+        this.pushUndoState();
+        const next = this.redoStack.pop();
+        this.restoreState(next);
+      }
+
+      restoreState(state) {
+        this.channelNames = [...state.channelNames];
+        this.colors = [...state.colors];
+        this.channelHeights = [...state.channelHeights];
+        this.labelOffset = state.labelOffset;
+        this.offset = state.offset;
+        this.samplesPerScreen = state.samplesPerScreen;
+        this.channelVisible = [...state.channelVisible];
+        this.updateCanvasSize();
+        this.requestRender();
+      }
+
+      clampOffset(newOffset) {
+        return Math.round(Math.max(0, Math.min(newOffset, this.data.length - this.samplesPerScreen)));
+      }
+
+      globalKeyHandler(e) {
+        if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') return;
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          this.undo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || e.key === 'z') && e.shiftKey) {
+          e.preventDefault();
+          this.redo();
+          return;
+        }
+
+        const step = Math.max(1, Math.floor(this.samplesPerScreen / 64));
+
+        if (e.key === 'PageDown' || (e.ctrlKey && e.key === 'ArrowRight')) {
+          e.preventDefault();
+          this.offset = this.clampOffset(this.offset + this.samplesPerScreen);
+          this.requestRender();
+        } else if (e.key === 'PageUp' || (e.ctrlKey && e.key === 'ArrowLeft')) {
+          e.preventDefault();
+          this.offset = this.clampOffset(this.offset - this.samplesPerScreen);
+          this.requestRender();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          this.offset = Math.max(0, this.offset - step);
+          this.requestRender();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          this.offset += step;
+          this.requestRender();
+        } else if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
+          this.zoomAtPosition(this.lastMouseX, -1);
+        } else if (e.key === '-' || e.key === '_') {
+          e.preventDefault();
+          this.zoomAtPosition(this.lastMouseX, 1);
+        } else if (e.ctrlKey && e.key === 'Home') {
+          e.preventDefault();
+          this.samplesPerScreen = this.data.length || this.DEFAULT_SAMPLES_PER_SCREEN;
+          this.offset = 0;
+          this.requestRender();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          this.offset = 0;
+          this.requestRender();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          this.offset = this.clampOffset(this.data.length - this.samplesPerScreen);
+          this.requestRender();
+        }
+      }
+
+
+
+      handleWheel(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const delta = Math.sign(e.deltaY);
+        this.zoomAtPosition(mouseX, delta);
+      }
+
+      zoomAtPosition(mouseX, delta) {
+        // If mouseX is not within waveform area, default to center
+        let effectiveMouseX = mouseX;
+        if (effectiveMouseX < this.labelOffset) {
+          effectiveMouseX = this.labelOffset + (this.canvas.width - this.labelOffset) / 2;
+        }
+
+        const zoomFactor = 0.1;
+
+        // Calculate the sample index currently under the mouse cursor
+        const waveformWidth = this.canvas.width - this.labelOffset;
+        const mouseRatio = (effectiveMouseX - this.labelOffset) / waveformWidth;
+        const sampleUnderCursor = this.offset + (this.samplesPerScreen * mouseRatio);
+
+        // Calculate new samples per screen
+        let newSamplesPerScreen = this.samplesPerScreen * (1 + zoomFactor * delta);
+
+        // Clamp samples per screen
+        newSamplesPerScreen = Math.max(this.MIN_SAMPLES_PER_SCREEN, Math.min(this.data.length, newSamplesPerScreen));
+
+        // Calculate new offset to keep the sample under cursor at the same screen position
+        let newOffset = sampleUnderCursor - (newSamplesPerScreen * mouseRatio);
+
+        // Clamp offset
+        newOffset = Math.max(0, Math.min(this.data.length - newSamplesPerScreen, newOffset));
+
+        this.samplesPerScreen = newSamplesPerScreen;
+        this.offset = newOffset;
+
+        this.requestRender();
+      }
+
+      handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        for (let channel = 0; channel < this.numChannels; channel++) {
+          const yBase = currentY;
+          if (x < this.labelOffset && y >= yBase && y < yBase + this.channelHeights[channel]) {
+            this.editingChannel = channel;
+            this.requestRender();
+            return;
+          }
+          currentY += this.channelHeights[channel] + 5;
+        }
+
+        const dividerYs = this.getDividerYPositions();
+
+        if (this.isDraggingVerticalBar) {
+          this.pushUndoState();
+          this.isDraggingVerticalBar = true;
+          this.dragStartX = e.clientX;
+          this.dragStartOffset = this.labelOffset;
+          return;
+        }
+
+        for (let i = 0; i < dividerYs.length; i++) {
+          if (Math.abs(y - dividerYs[i]) <= 4) {
+            this.pushUndoState();
+            this.draggingDividerIndex = i;
+            this.dragStartY = e.clientY;
+            return;
+          }
+        }
+
+        if (this.measureMode) {
+          if (e.button === 0 && x >= this.labelOffset) {
+            // Determine which channel is being clicked
+            let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+            let clickedChannel = -1;
+            for (let i = 0; i < this.numChannels; i++) {
+              if (y >= currentY && y <= currentY + this.channelHeights[i]) {
+                clickedChannel = i;
+                break;
+              }
+              currentY += this.channelHeights[i] + 5;
+            }
+
+            if (clickedChannel !== -1) {
+              this.selection.active = true;
+              this.selection.startX = x;
+              this.selection.endX = x;
+              this.selection.channel = clickedChannel;
+
+              const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+              const relativeX = x - this.labelOffset;
+              const sampleOffset = Math.round(relativeX / xscale);
+              this.selection.startSample = this.offset + sampleOffset;
+              this.selection.endSample = this.selection.startSample;
+              this.requestDynamicRender();
+            }
+          }
+          return;
+        }
+
+        if (x >= this.labelOffset) {
+          this.pushUndoState();
+          this.isDragging = true;
+          this.dragStartX = e.clientX;
+          this.dragStartOffset = this.offset;
+        }
+
+        if (e.ctrlKey && e.button === 0 && x >= this.labelOffset) {
+          this.pushUndoState();
+          const sampleIndex = (x - this.labelOffset) / (this.canvas.width - this.labelOffset) * this.samplesPerScreen + this.offset;
+          if (this.markers.length < 2) {
+            this.markers.push(Math.round(sampleIndex * (10 ** 6)) / (10 ** 6));
+          }
+          this.requestDynamicRender();
+        } else if (e.button === 2) {
+          this.pushUndoState();
+          this.markers.length = 0;
+          this.requestDynamicRender();
+        } else if (e.button === 0 && x >= this.labelOffset) {
+          this.pushUndoState();
+          this.isDragging = true;
+          this.dragStartX = e.clientX;
+          this.dragStartOffset = this.offset;
+          this.canvas.style.cursor = 'grabbing';
+        }
+      }
+
+      handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        this.lastMouseX = x; // Update last known mouse position
+
+        const dividerYs = this.getDividerYPositions();
+
+        if (this.isDraggingVerticalBar) {
+          const dx = e.clientX - this.dragStartX;
+          this.labelOffset = Math.max(45, this.dragStartOffset + dx);
+          this.requestStaticRender();
+          return;
+        }
+
+        if (this.draggingDividerIndex >= 0) {
+          const dy = e.clientY - this.dragStartY;
+          if (this.draggingDividerIndex === this.numChannels - 1) {
+            this.channelHeights[this.numChannels - 1] = Math.max(25, this.channelHeights[this.numChannels - 1] + dy);
+          } else {
+            this.channelHeights[this.draggingDividerIndex] = Math.max(25, this.channelHeights[this.draggingDividerIndex] + dy);
+          }
+          this.dragStartY = e.clientY;
+          this.requestStaticRender();
+          return;
+        }
+
+        if (this.measureMode && this.selection.active) {
+          this.selection.endX = x;
+          const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+          const relativeX = x - this.labelOffset;
+          const sampleOffset = Math.round(relativeX / xscale);
+          this.selection.endSample = this.offset + sampleOffset;
+          this.requestDynamicRender();
+          return;
+        }
+
+        if (this.isDragging) {
+          const dx = e.clientX - this.dragStartX;
+          const xscale = (this.canvas.width - this.labelOffset) / this.samplesPerScreen;
+          this.offset = Math.max(0, Math.floor(this.dragStartOffset - dx / xscale));
+          this.requestRender();
+          return;
+        }
+
+        let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        let hoveringChannel = -1;
+
+        for (let channel = 0; channel < this.numChannels; channel++) {
+          const yBase = currentY;
+          if (x < this.labelOffset && y >= yBase && y < yBase + this.channelHeights[channel]) {
+            this.canvas.style.cursor = 'pointer';
+            return;
+          }
+
+          // Check for hover over waveform area
+          if (x >= this.labelOffset && y >= yBase && y < yBase + this.channelHeights[channel]) {
+            hoveringChannel = channel;
+          }
+
+          currentY += this.channelHeights[channel] + 5;
+        }
+
+        // Update hover state
+        if (hoveringChannel !== -1) {
+          const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+          const relativeX = x - this.labelOffset;
+          const sampleOffset = Math.round(relativeX / xscale);
+          const sampleIndex = Math.floor(this.offset + sampleOffset);
+
+          if (sampleIndex >= 0 && sampleIndex < this.data.length) {
+            this.hoverState = {
+              active: true,
+              channel: hoveringChannel,
+              sampleIndex: sampleIndex
+            };
+            this.requestDynamicRender();
+          }
+        } else {
+          if (this.hoverState.active) {
+            this.hoverState.active = false;
+            this.requestDynamicRender();
+          }
+        }
+
+        if (Math.abs(x - this.labelOffset) < 5) {
+          this.canvas.style.cursor = 'ew-resize';
+          return;
+        }
+
+        for (const yDiv of dividerYs) {
+          if (Math.abs(y - yDiv) <= 4) {
+            this.canvas.style.cursor = 'ns-resize';
+            return;
+          }
+        }
+        this.canvas.style.cursor = 'default';
+      }
+
+      handleMouseUp() {
+        if (this.measureMode && this.selection.active) {
+          // Ensure start is before end
+          if (this.selection.startSample > this.selection.endSample) {
+            [this.selection.startSample, this.selection.endSample] = [this.selection.endSample, this.selection.startSample];
+            [this.selection.startX, this.selection.endX] = [this.selection.endX, this.selection.startX];
+          }
+          this.requestDynamicRender();
+          // Don't clear selection here, keep it visible until new selection or right click
+        }
+
+        this.isDragging = false;
+        this.isDraggingVerticalBar = false;
+        this.draggingDividerIndex = -1;
+        this.canvas.style.cursor = 'default';
+      }
+
+      handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        if (x > this.labelOffset - 5) return;
+
+        let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        for (let channel = 0; channel < this.numChannels; channel++) {
+          const yTop = currentY;
+          const yBottom = currentY + this.channelHeights[channel];
+          if (y >= yTop && y <= yBottom) {
+            this.promptChannelSettings(channel, yTop + this.channelHeights[channel] / 2 - 10);
+            return;
+          }
+          currentY += this.channelHeights[channel] + 5;
+        }
+      }
+
+      getDividerYPositions() {
+        let yPos = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        const dividerYs = [];
+        for (let i = 0; i < this.numChannels - 1; i++) {
+          yPos += this.channelHeights[i];
+          dividerYs.push(yPos);
+          yPos += 5;
+        }
+        yPos += this.channelHeights[this.numChannels - 1];
+        dividerYs.push(yPos);
+        return dividerYs;
+      }
+
+      promptChannelSettings(channel, yPosition) {
+        const container = document.createElement('div');
+        container.id = 'channelSettingsPrompt';
+        container.style.left = '5px';
+        container.style.top = `${yPosition}px`;
+
+        const nameLabel = document.createElement('label');
+        nameLabel.textContent = 'Channel Name:';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = this.channelNames[channel];
+
+        const colorLabel = document.createElement('label');
+        colorLabel.textContent = 'Color:';
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = this.colors[channel];
+
+        const triggerLabel = document.createElement('label');
+        triggerLabel.textContent = 'Trigger Mode:';
+        const triggerSelect = document.createElement('select');
+        const triggerOptions = [
+          { val: 'disabled', text: 'Disabled' },
+          { val: 'rising', text: 'Rising Edge' },
+          { val: 'falling', text: 'Falling Edge' },
+          { val: 'crossing', text: 'Crossing' },
+          { val: 'high', text: 'High' },
+          { val: 'low', text: 'Low' }
+        ];
+        triggerOptions.forEach(opt => {
+          const option = document.createElement('option');
+          option.value = opt.val;
+          option.textContent = opt.text;
+          triggerSelect.appendChild(option);
+        });
+        triggerSelect.value = (this.settings.channels && this.settings.channels[channel]) ? this.settings.channels[channel] : 'disabled';
+        // Style the select to match the dark theme popup
+        triggerSelect.style.color = '#000';
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '5px';
+        buttonContainer.style.marginTop = '5px';
+
+        const okButton = document.createElement('button');
+        okButton.textContent = 'OK';
+        okButton.style.flex = '1';
+        okButton.onclick = () => {
+          this.pushUndoState();
+          const newName = nameInput.value.trim();
+          const newColor = colorInput.value;
+          const newTriggerMode = triggerSelect.value;
+
+          if (newName) this.channelNames[channel] = newName;
+          this.colors[channel] = newColor;
+
+          if (!this.settings.channels) this.settings.channels = Array(16).fill('disabled');
+          this.settings.channels[channel] = newTriggerMode;
+
+          // Sync with global settings UI if it exists
+          const globalTriggerSelect = document.getElementById(`triggerCH${channel + 1}`);
+          if (globalTriggerSelect) {
+            globalTriggerSelect.value = newTriggerMode;
+          }
+
+          this.sendSettingsToServer();
+
+          document.body.removeChild(container);
+          this.requestStaticRender();
+        };
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.style.flex = '1';
+        cancelButton.onclick = () => {
+          document.body.removeChild(container);
+        };
+
+        buttonContainer.appendChild(okButton);
+        buttonContainer.appendChild(cancelButton);
+
+        container.appendChild(nameLabel);
+        container.appendChild(nameInput);
+        container.appendChild(colorLabel);
+        container.appendChild(colorInput);
+        container.appendChild(triggerLabel);
+        container.appendChild(triggerSelect);
+        container.appendChild(buttonContainer);
+        document.body.appendChild(container);
+
+        // ESC key handler
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            document.body.removeChild(container);
+            document.removeEventListener('keydown', escHandler);
+          }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        // Adjust position if it goes off-screen
+        const rect = container.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight) {
+          container.style.top = `${window.innerHeight - rect.height - 10}px`;
+        }
+
+        nameInput.focus();
+      }
+
+      resetCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+
+      clearOldInputs() {
+        this.container.querySelectorAll('.channel-input').forEach(input => input.remove());
+      }
+
+      clearOldCheckboxes() {
+        this.container.querySelectorAll('.channel-checkbox').forEach(cb => cb.remove());
+      }
+
+      drawGrid(xscale, width, height) {
+        this.ctx.strokeStyle = '#667';
+        this.ctx.lineWidth = 1.1;
+        this.ctx.setLineDash([2, 5]);
+
+        for (let i = 0; i < this.samplesPerScreen; i++) {
+          const x = i * xscale + this.labelOffset;
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, this.topBarHeight);
+          this.ctx.lineTo(x, height);
+          this.ctx.stroke();
+        }
+        this.ctx.setLineDash([]);
+      }
+
+      drawTimeAxis(xscale) {
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '12px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+
+        const labelSpacing = Math.ceil(this.samplesPerScreen / 16);
+        const timePerSampleNs = 1e9 / this.sampleRateHz;
+
+        for (let i = 0; i < this.samplesPerScreen; i++) {
+          const x = i * xscale + this.labelOffset;
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, this.topBarHeight);
+          this.ctx.lineTo(x, this.topBarHeight + 5);
+          this.ctx.stroke();
+
+          if (i % labelSpacing === 0) {
+            const timeValueNs = (Math.floor(this.offset) + i) * timePerSampleNs;
+            const label = (Math.floor(this.offset) + i) === 0 ? '0' : this.formatTime(timeValueNs);
+            this.ctx.fillText(label, x + ((Math.floor(this.offset) + i) === 0 ? 8 : 0), this.topBarHeight + 6);
+          }
+        }
+      }
+
+      formatTime(ns) {
+        if (ns < 1_000) {
+          return ns < 10 ? `${ns.toFixed(2).replace(/\.?0+$/, '')} ns` :
+            ns < 100 ? `${ns.toFixed(1).replace(/\.?0+$/, '')} ns` :
+              `${Math.round(ns)} ns`;
+        }
+        if (ns < 1_000_000) return `${(ns / 1_000).toFixed(2).replace(/\.?0+$/, '')} µs`;
+        if (ns < 1_000_000_000) return `${(ns / 1_000_000).toFixed(2).replace(/\.?0+$/, '')} ms`;
+        return `${(ns / 1_000_000_000).toFixed(3).replace(/\.?0+$/, '')} s`;
+      }
+
+      onChannelToggle(channel, checkbox) {
+        this.channelVisible[channel] = checkbox.checked;
+        this.requestStaticRender();
+      }
+
+      drawChannelUI(channel, yBase, width) {
+        const name = this.channelNames[channel];
+        const labelWidth = this.labelOffset - 20;
+        const lineHeight = 18;
+        const textTopPadding = 14;
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.className = 'channel-checkbox';
+        chk.id = `chk-${channel}`;
+        chk.checked = this.channelVisible[channel];
+        chk.style.left = '2px';
+        chk.style.top = `${yBase + 2}px`;
+        chk.onchange = () => this.onChannelToggle(channel, chk);
+        this.container.appendChild(chk);
+
+        const wrappedText = this.wrapText(name, labelWidth, this.ctx);
+        const startY = yBase + textTopPadding - this.timeAxisHeight / 3;
+        wrappedText.forEach((line, idx) => {
+          this.ctx.fillText(line, 30, startY + idx * lineHeight);
+        });
+
+        // Draw Trigger Icon
+        const triggerMode = (this.settings.channels && this.settings.channels[channel]) ? this.settings.channels[channel] : 'disabled';
+        if (triggerMode !== 'disabled') {
+          const iconSize = 20;
+          const iconX = (this.labelOffset - iconSize) / 2;
+          this.drawTriggerIcon(this.ctx, iconX, yBase + 35, triggerMode);
+        }
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, yBase + this.channelHeights[channel]);
+        this.ctx.lineTo(width, yBase + this.channelHeights[channel]);
+        this.ctx.stroke();
+      }
+
+      drawTriggerIcon(ctx, x, y, mode) {
+        ctx.save();
+        ctx.strokeStyle = '#fbbf24'; // Amber color for trigger icon
+        ctx.lineWidth = 2; // Thicker line for larger icon
+        ctx.beginPath();
+
+        const size = 20;
+
+        switch (mode) {
+          case 'rising':
+            ctx.moveTo(x, y + size);
+            ctx.lineTo(x + size / 2, y + size);
+            ctx.lineTo(x + size / 2, y);
+            ctx.lineTo(x + size, y);
+            // Arrow head
+            ctx.moveTo(x + size / 2 - 4, y + 6);
+            ctx.lineTo(x + size / 2, y);
+            ctx.lineTo(x + size / 2 + 4, y + 6);
+            break;
+          case 'falling':
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size / 2, y);
+            ctx.lineTo(x + size / 2, y + size);
+            ctx.lineTo(x + size, y + size);
+            // Arrow head
+            ctx.moveTo(x + size / 2 - 4, y + size - 6);
+            ctx.lineTo(x + size / 2, y + size);
+            ctx.lineTo(x + size / 2 + 4, y + size - 6);
+            break;
+          case 'high':
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size, y);
+            break;
+          case 'low':
+            ctx.moveTo(x, y + size);
+            ctx.lineTo(x + size, y + size);
+            break;
+          case 'crossing':
+            // X shape
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size, y + size);
+            ctx.moveTo(x, y + size);
+            ctx.lineTo(x + size, y);
+            break;
+        }
+
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      wrapText(text, maxWidth, ctx) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+        words.forEach(word => {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const width = ctx.measureText(testLine).width;
+          if (width > maxWidth) {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        });
+        if (currentLine) lines.push(currentLine);
+        return lines;
+      }
+
+      drawChannelWaveform(channel, yBase, xscale) {
+        if (!this.channelVisible[channel]) return;
+
+        this.ctx.strokeStyle = this.colors[channel];
+        this.ctx.lineWidth = 2;
+
+        let prevY = yBase + this.channelHeights[channel] / 2;
+        let first = true;
+
+        for (let i = 0; i < this.samplesPerScreen; i++) {
+          const sampleIndex = Math.floor(this.offset + i);
+          if (sampleIndex >= this.data.length) break;
+
+          const sample = (this.data[sampleIndex] >> channel) & 1;
+          const x = i * xscale + this.labelOffset;
+          const y = yBase + (1 - sample) * (this.channelHeights[channel] - 10);
+
+          if (first) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, y);
+            first = false;
+          } else {
+            this.ctx.lineTo(x, prevY);
+            this.ctx.lineTo(x, y);
+          }
+
+          prevY = y;
+        }
+        this.ctx.stroke();
+      }
+
+      drawMarkers() {
+        const xscale = (this.canvas.width - this.labelOffset) / this.samplesPerScreen;
+
+        this.overlayCtx.strokeStyle = '#ffffff';
+        this.overlayCtx.lineWidth = 1;
+
+        this.markers.forEach(sampleIndex => {
+          const x = (sampleIndex - Math.floor(this.offset)) * xscale + this.labelOffset;
+          this.overlayCtx.beginPath();
+          this.overlayCtx.moveTo(x, this.topBarHeight);
+          this.overlayCtx.lineTo(x, this.canvas.height);
+          this.overlayCtx.stroke();
+        });
+
+        if (this.markers.length === 2) {
+          const deltaSamples = Math.abs(this.markers[1] - this.markers[0]);
+          const deltaTimeNs = deltaSamples * (1e9 / this.sampleRateHz);
+          const deltaSamplesRounded = deltaSamples.toFixed(3);
+          const deltaLabel = `Δ: ${deltaSamplesRounded} samples, ${this.formatTime(deltaTimeNs)}`;
+
+          this.overlayCtx.fillStyle = '#ffffff';
+          this.overlayCtx.font = '14px sans-serif';
+          this.overlayCtx.textAlign = 'right';
+          this.overlayCtx.fillText(deltaLabel, this.canvas.width - 10, 12 + this.topBarHeight + this.timeAxisHeight);
+        }
+      }
+      drawStaticContent() {
+        this.resetCanvas(); // Clears main canvas
+
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const xscale = (width - this.labelOffset) / (this.samplesPerScreen - 1);
+
+        this.drawGrid(xscale, width, height);
+        this.drawTimeAxis(xscale);
+
+        let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        for (let channel = 0; channel < this.numChannels; channel++) {
+          this.drawChannelUI(channel, currentY, width);
+          currentY += this.channelHeights[channel] + 5;
+        }
+
+        if (this.data.length > 0) {
+          currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+          for (let channel = 0; channel < this.numChannels; channel++) {
+            this.drawChannelWaveform(channel, currentY, xscale);
+            currentY += this.channelHeights[channel] + 5;
+          }
+        }
+      }
+
+      drawDynamicContent() {
+        // Clear overlay canvas
+        this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        // Need to recalculate xscale for dynamic elements
+        const xscale = (width - this.labelOffset) / (this.samplesPerScreen - 1);
+
+        this.drawTriggerLine();
+        this.drawMarkers(); // Markers currently drawn on main ctx, move to overlay
+        this.drawHoverMeasurement();
+        this.drawSelectionMeasurement();
+      }
+
+      drawWaveforms() {
+        // Backward compatibility / Fallback
+        this.drawStaticContent();
+        this.drawDynamicContent();
+      }
+      drawSelectionMeasurement() {
+        if (!this.selection.active || this.selection.channel === -1) return;
+
+        const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+        const startX = ((this.selection.startSample - Math.floor(this.offset)) * xscale) + this.labelOffset;
+        const endX = ((this.selection.endSample - Math.floor(this.offset)) * xscale) + this.labelOffset;
+
+        // Determine Y position
+        let yBase = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        for (let i = 0; i < this.selection.channel; i++) {
+          yBase += this.channelHeights[i] + 5;
+        }
+        const height = this.channelHeights[this.selection.channel];
+
+        // Draw selection overlay
+        this.overlayCtx.save();
+        this.overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        this.overlayCtx.fillRect(Math.min(startX, endX), yBase, Math.abs(endX - startX), height);
+        this.overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.strokeRect(Math.min(startX, endX), yBase, Math.abs(endX - startX), height);
+
+        // Calculate Stats
+        const startSampleIdx = Math.round(Math.min(this.selection.startSample, this.selection.endSample));
+        const endSampleIdx = Math.round(Math.max(this.selection.startSample, this.selection.endSample));
+
+        if (startSampleIdx < 0 || endSampleIdx >= this.data.length || startSampleIdx === endSampleIdx) {
+          this.overlayCtx.restore();
+          return;
+        }
+        let risingEdges = 0;
+        let fallingEdges = 0;
+        const channelMask = 1 << this.selection.channel;
+
+        let prevState = (this.data[startSampleIdx] & channelMask) ? 1 : 0;
+
+        for (let i = startSampleIdx + 1; i <= endSampleIdx; i++) {
+          const currState = (this.data[i] & channelMask) ? 1 : 0;
+          if (prevState === 0 && currState === 1) risingEdges++;
+          if (prevState === 1 && currState === 0) fallingEdges++;
+          prevState = currState;
+        }
+
+        const durationSamples = endSampleIdx - startSampleIdx;
+        const durationTime = durationSamples / this.sampleRateHz;
+        const cycles = (risingEdges + fallingEdges) / 2;
+        const freq = durationTime > 0 ? cycles / durationTime : 0;
+
+        // Display Stats
+        const textX = Math.max(this.labelOffset, Math.min(startX, endX));
+        const textY = yBase - 5;
+
+        this.overlayCtx.fillStyle = '#ffffff';
+        this.overlayCtx.font = '12px monospace';
+        this.overlayCtx.textAlign = 'left';
+        this.overlayCtx.textBaseline = 'bottom';
+
+        const stats = [
+          `Duration: ${this.formatTime(durationTime * 1e9)}`,
+          `Rising: ${risingEdges}`,
+          `Falling: ${fallingEdges}`,
+          `Freq: ${this.formatFrequency(freq)}`
+        ];
+
+        // Draw background for text
+        const metrics = this.overlayCtx.measureText(stats[0]); // Approximation
+        const bgWidth = 150;
+        const bgHeight = stats.length * 14 + 4;
+
+        this.overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.overlayCtx.fillRect(textX, textY - bgHeight, bgWidth, bgHeight);
+
+        this.overlayCtx.fillStyle = '#ffffff';
+        stats.forEach((stat, index) => {
+          this.overlayCtx.fillText(stat, textX + 5, textY - 4 - (stats.length - 1 - index) * 14);
+        });
+
+        this.overlayCtx.restore();
+      }
+      formatFrequency(hz) {
+        if (hz < 1000) return `${hz.toFixed(2)} Hz`;
+        if (hz < 1000000) return `${(hz / 1000).toFixed(2)} kHz`;
+        return `${(hz / 1000000).toFixed(2)} MHz`;
+      }
+
+      findNearestEdges(channel, centerIndex) {
+        if (channel < 0 || channel >= this.numChannels || centerIndex < 0 || centerIndex >= this.data.length) {
+          return null;
+        }
+
+        const centerSample = (this.data[centerIndex] >> channel) & 1;
+        let leftIndex = -1;
+        let rightIndex = -1;
+
+        // Search backwards
+        for (let i = centerIndex - 1; i >= 0; i--) {
+          const sample = (this.data[i] >> channel) & 1;
+          if (sample !== centerSample) {
+            leftIndex = i; // Found the edge (transition point)
+            break;
+          }
+        }
+
+        // Search forwards
+        for (let i = centerIndex + 1; i < this.data.length; i++) {
+          const sample = (this.data[i] >> channel) & 1;
+          if (sample !== centerSample) {
+            rightIndex = i; // Found the edge
+            break;
+          }
+        }
+
+        if (leftIndex !== -1 && rightIndex !== -1) {
+          // Adjust indices to represent the actual edge position (between samples)
+          // For visualization, we might want to snap to the sample where the value changed
+          return { left: leftIndex, right: rightIndex };
+        }
+        return null;
+      }
+
+      drawHoverMeasurement() {
+        if (!this.hoverState.active || this.hoverState.channel === -1 || this.hoverState.sampleIndex === -1) return;
+
+        const edges = this.findNearestEdges(this.hoverState.channel, this.hoverState.sampleIndex);
+        if (!edges) return;
+
+        const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+
+        // Calculate X positions for edges
+        // Transition 1 is between left and left+1.
+        // Transition 2 is between right-1 and right.
+        const x1 = ((edges.left + 1 - Math.floor(this.offset)) * xscale) + this.labelOffset;
+        const x2 = ((edges.right - Math.floor(this.offset)) * xscale) + this.labelOffset;
+
+        // Only draw if visible
+        if (x2 < this.labelOffset || x1 > this.canvas.width) return;
+
+        let yBase = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
+        for (let i = 0; i < this.hoverState.channel; i++) {
+          yBase += this.channelHeights[i] + 5;
+        }
+
+        const height = this.channelHeights[this.hoverState.channel];
+
+        this.overlayCtx.save();
+        this.overlayCtx.strokeStyle = '#00ff00'; // Green for measurement
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.setLineDash([3, 3]);
+
+        // Draw vertical lines
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(x1, yBase);
+        this.overlayCtx.lineTo(x1, yBase + height);
+        this.overlayCtx.stroke();
+
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(x2, yBase);
+        this.overlayCtx.lineTo(x2, yBase + height);
+        this.overlayCtx.stroke();
+
+        // Draw arrow/text
+        const midX = (x1 + x2) / 2;
+        const durationSamples = edges.right - edges.left - 1;
+        const durationTime = durationSamples * (1e9 / this.sampleRateHz);
+        const text = this.formatTime(durationTime);
+
+        this.overlayCtx.fillStyle = '#00ff00';
+        this.overlayCtx.font = '12px sans-serif';
+        this.overlayCtx.textAlign = 'center';
+        this.overlayCtx.textBaseline = 'bottom';
+        this.overlayCtx.fillText(text, midX, yBase - 2);
+
+        // Draw horizontal arrow line
+        this.overlayCtx.setLineDash([]);
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(x1, yBase - 5);
+        this.overlayCtx.lineTo(x2, yBase - 5);
+        this.overlayCtx.stroke();
+
+        this.overlayCtx.restore();
+      }
+
+
+
+      adjustTriggerPosition(originalIndex) {
+        if (!this.settings.triggerEnabled || this.data.length === 0) return originalIndex;
+
+        // Search range +/- 7 samples
+        const searchRange = 7;
+        const start = Math.max(0, originalIndex - searchRange);
+        const end = Math.min(this.data.length - 1, originalIndex + searchRange);
+
+        for (let i = start; i <= end; i++) {
+          let match = this.settings.triggerModeOR ? false : true;
+          let hasEnabledChannels = false;
+
+          for (let ch = 0; ch < this.settings.channels.length; ch++) {
+            const triggerMode = this.settings.channels[ch];
+            if (triggerMode === 'disabled') continue;
+
+            hasEnabledChannels = true;
+            let channelMatch = false;
+            // Extract bit for channel ch
+            const currentSample = (this.data[i] >> ch) & 1;
+            // For edge detection, we need previous sample. 
+            // If i=0, we assume previous sample is same as current (no edge)
+            const prevSample = i > 0 ? (this.data[i - 1] >> ch) & 1 : currentSample;
+
+            if (triggerMode === 'rising') {
+              if (currentSample === 1 && prevSample === 0) channelMatch = true;
+            } else if (triggerMode === 'falling') {
+              if (currentSample === 0 && prevSample === 1) channelMatch = true;
+            } else if (triggerMode === 'high') {
+              if (currentSample === 1) channelMatch = true;
+            } else if (triggerMode === 'low') {
+              if (currentSample === 0) channelMatch = true;
+            } else if (triggerMode === 'crossing') {
+              if (currentSample !== prevSample) channelMatch = true;
+            }
+
+            if (this.settings.triggerModeOR) {
+              if (channelMatch) {
+                match = true;
+                break; // Found one match, that's enough for OR
+              }
+            } else {
+              if (!channelMatch) {
+                match = false;
+                break; // Found one mismatch, fails AND
+              }
+            }
+          }
+
+          // If no triggers are enabled, we can't adjust based on trigger condition
+          if (!hasEnabledChannels) {
+            return originalIndex;
+          }
+
+          if (match) {
+            if (i !== originalIndex) {
+              console.log(`Trigger adjusted from ${originalIndex} to ${i} (${i - originalIndex > 0 ? '+' : ''}${i - originalIndex})`);
+            }
+            return i;
+          }
+        }
+
+        // If no better match found, return original
+        return originalIndex;
+      }
+
+      drawTriggerLine() {
+        if (!this.settings.triggerEnabled || this.data.length === 0) return;
+
+        let triggerSampleIndex;
+        if (this.actualTriggerPosition >= 0) {
+          triggerSampleIndex = this.actualTriggerPosition;
+        } else {
+          triggerSampleIndex = Math.floor(this.data.length * (this.settings.triggerPosition / 100));
+        }
+
+        // Auto-correct trigger position
+        triggerSampleIndex = this.adjustTriggerPosition(triggerSampleIndex);
+
+        const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
+        const x = (triggerSampleIndex - Math.floor(this.offset)) * xscale + this.labelOffset;
+
+        // Only draw if visible (with some padding to allow partial visibility)
+        if (x < this.labelOffset || x > this.canvas.width) return;
+
+        this.overlayCtx.save();
+        this.overlayCtx.strokeStyle = '#ff00ff'; // Magenta for trigger
+        this.overlayCtx.lineWidth = 2;
+        this.overlayCtx.setLineDash([5, 5]);
+        this.overlayCtx.beginPath();
+        this.overlayCtx.moveTo(x, this.topBarHeight + this.timeAxisHeight);
+        this.overlayCtx.lineTo(x, this.canvas.height);
+        this.overlayCtx.stroke();
+
+        // Draw 'T' label at the top
+        this.overlayCtx.fillStyle = '#ff00ff';
+        this.overlayCtx.font = 'bold 12px sans-serif';
+        this.overlayCtx.textAlign = 'center';
+        this.overlayCtx.textBaseline = 'bottom';
+        this.overlayCtx.fillText('T', x, this.topBarHeight + this.timeAxisHeight);
+        this.overlayCtx.restore();
+      }
+      renderTriggerSettings() {
+        const container = document.getElementById('triggerSettingsContainer');
+        container.innerHTML = '';
+
+        for (let i = 0; i < this.numChannels; i++) {
+          const channelIndex = i + 1;
+          const row = document.createElement('div');
+          row.className = 'trigger-control-row';
+
+          const label = document.createElement('label');
+          label.htmlFor = `triggerCH${channelIndex}`;
+          label.textContent = `CH${channelIndex}:`;
+
+          const select = document.createElement('select');
+          select.id = `triggerCH${channelIndex}`;
+
+          const options = [
+            { val: 'disabled', text: 'Disabled' },
+            { val: 'rising', text: 'Rising Edge' },
+            { val: 'falling', text: 'Falling Edge' },
+            { val: 'crossing', text: 'Crossing' },
+            { val: 'high', text: 'High' },
+            { val: 'low', text: 'Low' }
+          ];
+
+          options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.val;
+            option.textContent = opt.text;
+            select.appendChild(option);
+          });
+
+          select.value = this.settings.channels[i] || 'disabled';
+
+          row.appendChild(label);
+          row.appendChild(select);
+          container.appendChild(row);
+        }
+      }
+    }
+
+    // Initialize
+    const logicAnalyzer = new LogicAnalyzer();
+  </script>
+</body>
+
+</html>

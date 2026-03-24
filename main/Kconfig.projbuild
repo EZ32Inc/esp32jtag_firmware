@@ -1,0 +1,349 @@
+menu "OpenOCD-on-ESP32 Configuration"
+
+    choice OPENOCD_CHOOSE_TARGET_CONFIG
+        prompt "OpenOCD target file"
+        default OPENOCD_TARGET_ESP32
+        help
+            Name of the target config file.
+            Make sure the config file and its dependencies are located in the tcl-lite directory.
+
+        config OPENOCD_TARGET_ESP32
+            bool "esp32"
+        config OPENOCD_TARGET_ESP32S2
+            bool "esp32s2"
+        config OPENOCD_TARGET_ESP32S3
+            bool "esp32s3"
+        config OPENOCD_TARGET_ESP32C2
+            bool "esp32c2"
+        config OPENOCD_TARGET_ESP32C3
+            bool "esp32c3"
+        config OPENOCD_TARGET_ESP32H2
+            bool "esp32h2"
+        config OPENOCD_TARGET_ESP32C6
+            bool "esp32c6"
+        config OPENOCD_TARGET_OTHER
+            bool "other"
+    endchoice
+
+    config OPENOCD_OTHER_TARGET_CONFIG
+        string "OpenOCD target file for none Espressif chips"
+        depends on OPENOCD_TARGET_OTHER
+        default "stm32f1x.cfg"
+        help
+            Name of the target config file with ".cfg" suffix.
+            Make sure the config file and its dependencies are located in the tcl-lite directory.
+
+    config OPENOCD_TARGET_CONFIG_FILE
+        string
+        default "esp32.cfg" if OPENOCD_TARGET_ESP32
+        default "esp32s2.cfg" if OPENOCD_TARGET_ESP32S2
+        default "esp32s3.cfg" if OPENOCD_TARGET_ESP32S3
+        default "esp32c2.cfg" if OPENOCD_TARGET_ESP32C2
+        default "esp32c3.cfg" if OPENOCD_TARGET_ESP32C3
+        default "esp32h2.cfg" if OPENOCD_TARGET_ESP32H2
+        default "esp32c6.cfg" if OPENOCD_TARGET_ESP32C6
+        default OPENOCD_OTHER_TARGET_CONFIG if OPENOCD_TARGET_OTHER
+
+	choice OPENOCD_CHOOSE_INTERFACE
+		prompt "OpenOCD interface"
+		default OPENOCD_IFACE_JTAG
+		help
+			Select which transport to use in this OpenOCD session
+
+		config OPENOCD_IFACE_JTAG
+			bool "jtag"
+		config OPENOCD_IFACE_SWD
+			bool "swd"
+	endchoice
+
+    config OPENOCD_INTERFACE
+        int
+        default 0 if OPENOCD_IFACE_JTAG
+		default 1 if OPENOCD_IFACE_SWD
+        default 0
+
+    choice OPENOCD_CHOOSE_TARGET_FLASH_SIZE
+        prompt "OpenOCD target flash size"
+        default OPENOCD_TARGET_FLASH_SIZE_AUTO
+        depends on !OPENOCD_TARGET_OTHER
+        help
+            Size of the target flash. '0' to disable flasher stub.
+
+        config OPENOCD_TARGET_FLASH_SIZE_AUTO
+            bool "auto"
+        config OPENOCD_TARGET_FLASH_SIZE_CUSTOM
+            bool "custom"
+    endchoice
+
+    config OPENOCD_CUSTOM_TARGET_FLASH_SIZE
+        string "Size of the target flash"
+        depends on OPENOCD_TARGET_FLASH_SIZE_CUSTOM
+        default "0"
+        help
+            Size of the target flash in hex. "0" to disable flasher stub.
+
+    config ESP_FLASH_SIZE
+        string
+        default "auto" if OPENOCD_TARGET_FLASH_SIZE_AUTO
+        default OPENOCD_CUSTOM_TARGET_FLASH_SIZE if OPENOCD_TARGET_FLASH_SIZE_CUSTOM
+        default "auto"
+
+    choice OPENOCD_CHOOSE_RTOS_TYPE
+        prompt "OpenOCD rtos type"
+        default OPENOCD_RTOS_FREERTOS
+        depends on !OPENOCD_TARGET_OTHER
+        help
+            See supported rtos types in the openocd documentation.
+            To disable OS support (for bare metal system) use 'none'.
+
+        config OPENOCD_RTOS_FREERTOS
+            bool "FreeRTOS"
+        config OPENOCD_RTOS_NUTTX
+            bool "nuttx"
+        config OPENOCD_RTOS_ZEPHYR
+            bool "Zephyr"
+        config OPENOCD_RTOS_HWTHREAD
+            bool "hwthread"
+        config OPENOCD_RTOS_THREADX
+            bool "ThreadX"
+        config OPENOCD_RTOS_ECOS
+            bool "eCos"
+        config OPENOCD_RTOS_LINUX
+            bool "linux"
+        config OPENOCD_RTOS_CHIBIOS
+            bool "chibios"
+        config OPENOCD_RTOS_CHROMIUM
+            bool "Chromium-EC"
+        config OPENOCD_RTOS_EMBKERNEL
+            bool "embKernel"
+        config OPENOCD_RTOS_MQX
+            bool "mqx"
+        config OPENOCD_RTOS_UCOS
+            bool "uCOS-III"
+        config OPENOCD_RTOS_RTKERNEL
+            bool "rtkernel"
+        config OPENOCD_RTOS_NONE
+            bool "none"
+    endchoice
+
+    config ESP_RTOS
+        string
+        default "FreeRTOS" if OPENOCD_RTOS_FREERTOS
+        default "nuttx" if OPENOCD_RTOS_NUTTX
+        default "Zephyr" if OPENOCD_RTOS_ZEPHYR
+        default "hwthread" if OPENOCD_RTOS_HWTHREAD
+        default "ThreadX" if OPENOCD_RTOS_THREADX
+        default "eCos" if OPENOCD_RTOS_ECOS
+        default "linux" if OPENOCD_RTOS_LINUX
+        default "chibios" if OPENOCD_RTOS_CHIBIOS
+        default "Chromium-EC" if OPENOCD_RTOS_CHROMIUM
+        default "embKernel" if OPENOCD_RTOS_EMBKERNEL
+        default "mqx" if OPENOCD_RTOS_MQX
+        default "uCOS-III" if OPENOCD_RTOS_UCOS
+        default "rtkernel" if OPENOCD_RTOS_RTKERNEL
+        default "none" if OPENOCD_RTOS_NONE
+        default "FreeRTOS"
+
+    config OPENOCD_SMP_TARGET
+        bool "OpenOCD smp target"
+        default y
+        depends on OPENOCD_TARGET_ESP32 || OPENOCD_TARGET_ESP32S3
+
+    config ESP_ONLYCPU
+        int
+        default 3 if OPENOCD_SMP_TARGET
+        default 1
+
+    config OPENOCD_CUSTOM_COMMAND
+        string "Command line arguments"
+        default ""
+        help
+            OpenOCD -c command
+
+    config OPENOCD_DEBUG_LEVEL
+        int "OpenOCD Debug level"
+        range 1 4
+        default 2
+        help
+            Sets the verbosity level of debugging output.
+
+    config UI_ENABLE
+        bool "Run on ESP-BOX"
+        depends on IDF_TARGET_ESP32S3
+        default n
+
+    config ESP_WIFI_SSID
+        string "WiFi SSID"
+        default "esp-openocd"
+        help
+            SSID (network name) to connect.
+
+    config ESP_WIFI_PASSWORD
+        string "WiFi Password"
+        default "openocd-pswd"
+        help
+            WiFi password (WPA or WPA2) to use.
+
+endmenu
+
+menu "Web Terminal"
+
+    config WEBTERM_MDNS_HOST_NAME
+        string "mDNS Host Name"
+        default "webterm"
+        help
+            Specify the domain name used in the mDNS service.
+            Note that webpage also take it as a part of URL where it will send GET/POST requests to.
+
+
+    choice WEBTERM_WEB_DEPLOY_MODE
+        prompt "Website deploy mode"
+        default WEBTERM_WEB_DEPLOY_SF
+        help
+            Select website deploy mode.
+            You can deploy website to SD card or SPI flash, and ESP32 will retrieve them via SDIO/SPI interface.
+            Detailed operation steps are listed in the example README file.
+        config WEBTERM_WEB_DEPLOY_SD
+            depends on IDF_TARGET_ESP32
+            bool "Deploy website to SD card"
+            help
+                Deploy website to SD card.
+                Choose this production mode if the size of website is too large (bigger than 2MB).
+        config WEBTERM_WEB_DEPLOY_SF
+            bool "Deploy website to SPI Nor Flash"
+            help
+                Deploy website to SPI Nor Flash.
+                Choose this production mode if the size of website is small (less than 2MB).
+    endchoice
+
+
+    config WEBTERM_WEB_SRC_DIR
+        string "Web source directory name"
+        default "frontend"
+        help
+            Specify the directory name of the frontend source
+
+
+    config WEBTERM_WIFI_SSID
+        depends on !WEBTERM_WIFI_SSID_PWD_FROM_STDIN
+        string "WiFi SSID"
+        default "myssid"
+        help
+            SSID (network name) for the example to connect to.
+
+
+    config WEBTERM_WIFI_PASSWORD
+        depends on !WEBTERM_WIFI_SSID_PWD_FROM_STDIN
+        string "WiFi Password"
+        default "mypassword"
+        help
+            WiFi password (WPA or WPA2) for the example to use.
+            Can be left blank if the network has no security set.
+
+
+    choice WEBTERM_WIFI_SCAN_AUTH_MODE_THRESHOLD
+        prompt "WiFi Scan auth mode threshold"
+        default WEBTERM_WIFI_AUTH_WPA_WPA2_PSK
+        help
+            The weakest authmode to accept in the scan mode.
+
+        config WEBTERM_WIFI_AUTH_OPEN
+            bool "OPEN"
+        config WEBTERM_WIFI_AUTH_WEP
+            bool "WEP"
+        config WEBTERM_WIFI_AUTH_WPA_PSK
+            bool "WPA PSK"
+        config WEBTERM_WIFI_AUTH_WPA2_PSK
+            bool "WPA2 PSK"
+        config WEBTERM_WIFI_AUTH_WPA_WPA2_PSK
+            bool "WPA WPA2 PSK"
+        config WEBTERM_WIFI_AUTH_WPA2_ENTERPRISE
+            bool "WPA2 ENTERPRISE"
+        config WEBTERM_WIFI_AUTH_WPA3_PSK
+            bool "WPA3 PSK"
+        config WEBTERM_WIFI_AUTH_WPA2_WPA3_PSK
+            bool "WPA2 WPA3 PSK"
+        config WEBTERM_WIFI_AUTH_WAPI_PSK
+            bool "WAPI PSK"
+    endchoice
+
+endmenu
+
+# menu "Example Configuration"
+#     # config EXAMPLE_FIRMWARE_UPGRADE_URL
+#     #     string "firmware upgrade url endpoint"
+#     #     default "https://192.168.0.3:8070/hello-world.bin"
+#     #     help
+#     #         URL of server which hosts the firmware
+#     #         image.
+    
+#     menu "WiFi Mode Selection"
+#         comment "Choose the WiFi operating mode for the application"
+
+#         choice WIFI_MODE_SELECTION
+#             prompt "Select WiFi Mode"
+#             default WIFI_MODE_AP_ONLY # Set your preferred default mode
+
+#             config WIFI_MODE_AP_ONLY
+#                 bool "Access Point (AP) Mode Only"
+#                 help
+#                     Makes the ESP32 act as a Wi-Fi hotspot for other devices to connect to.
+
+#             config WIFI_MODE_STA_ONLY
+#                 bool "Station (STA) Mode Only"
+#                 help
+#                     Connects the ESP32 to an existing Wi-Fi network (e.g., your home router).
+
+#             config WIFI_MODE_AP_STA
+#                 bool "Access Point + Station (AP+STA) Mode (Work in Progress)"
+#                 help
+#                     The ESP32 acts as an AP AND connects to an existing Wi-Fi network simultaneously.
+#         endchoice
+
+#     endmenu # End of WiFi Mode Selection menu
+
+#     menu "SoftAP Configuration"
+#         comment "SoftAP Configuration"
+
+#         config ESP_WIFI_AP_SSID
+#             string "WiFi AP SSID"
+#             default "esp32jtag"
+#             help
+#                 SSID (network name) of the AP for the example to connect to.
+
+#         config ESP_WIFI_AP_PASSWORD
+#             string "WiFi AP Password"
+#             default "esp32jtag"
+#             help
+#                 WiFi password of the AP for the example to use.
+
+#         config ESP_WIFI_AP_CHANNEL
+#             int "WiFi AP Channel"
+#             range 1 14
+#             default 1
+#             help
+#                 WiFi channel (network channel) of the AP for the example to use.
+
+#         config ESP_MAX_STA_CONN_AP
+#             int "Maximal STA connections"
+#             default 4
+#             help
+#                 Max number of the STA connects to AP.
+#     endmenu
+
+#     menu "WiFi Station Configuration"
+
+#         config ESP_WIFI_STA_SSID
+#             string "WiFi Station SSID"
+#             default "Wifi_Name" # Replace with your actual SSID
+#             help
+#                 SSID (network name) of the WiFi network for the ESP32 to connect to in STA mode.
+
+#         config ESP_WIFI_STA_PASSWORD
+#             string "WiFi Station Password"
+#             default "PSSWRD" # Replace with your actual password
+#             help
+#                 Password of the WiFi network for the ESP32 to connect to in STA mode.
+
+#     endmenu
+# endmenu
