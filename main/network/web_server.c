@@ -1622,6 +1622,36 @@ static esp_err_t la_configure_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t la_get_settings_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    const char *trigger_names[] = {"disabled", "rising", "falling", "crossing", "high", "low"};
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "sampleRate",    gbl_sample_rate);
+    cJSON_AddBoolToObject  (root, "triggerEnabled", gbl_trigger_enabled);
+    cJSON_AddBoolToObject  (root, "triggerModeOR",  gbl_trigger_mode_or);
+    cJSON_AddBoolToObject  (root, "captureInternalTestSignal", gbl_capture_internal_test_signal);
+    cJSON_AddNumberToObject(root, "triggerPosition", gbl_trigger_position);
+
+    cJSON *channels = cJSON_CreateArray();
+    for (int i = 0; i < 16; i++) {
+        int t = (int)gbl_channel_triggers[i];
+        const char *name = (t >= 0 && t <= 5) ? trigger_names[t] : "disabled";
+        cJSON_AddItemToArray(channels, cJSON_CreateString(name));
+    }
+    cJSON_AddItemToObject(root, "channels", channels);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    free(json_str);
+
+    return ESP_OK;
+}
+
 esp_err_t reset_to_factory_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -1794,6 +1824,13 @@ httpd_uri_t uri_la_configure = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_la_get_settings = {
+    .uri      = "/la_get_settings",
+    .method   = HTTP_GET,
+    .handler  = la_get_settings_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_test_start = {
     .uri      = "/test/start",
     .method   = HTTP_POST,
@@ -1884,6 +1921,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_instant_capture);
     httpd_register_uri_handler(*http_handle, &uri_capture_data);
     httpd_register_uri_handler(*http_handle, &uri_la_configure);
+    httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
 
     // Test automation endpoints
     httpd_register_uri_handler(*http_handle, &uri_test_start);

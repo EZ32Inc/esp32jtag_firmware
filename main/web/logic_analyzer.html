@@ -428,6 +428,10 @@
         this.dynamicRenderPending = false;
         this.requestStaticRender();
         this.requestDynamicRender();
+
+        // Fetch current hardware settings and apply to UI so that
+        // a page refresh reflects actual device state, not JS defaults.
+        this.fetchAndApplySettings();
       }
 
       requestStaticRender() {
@@ -590,6 +594,23 @@
         this.requestStaticRender();
         this.requestDynamicRender();
       }
+      async fetchAndApplySettings() {
+        try {
+          const response = await fetch(`${API_BASE}/la_get_settings`);
+          if (!response.ok) return;
+          const s = await response.json();
+          // Merge server state into this.settings
+          Object.assign(this.settings, s);
+          // Update visible UI elements immediately
+          this.testSignalTopToggle.textContent = "Test Signal: " + (this.settings.captureInternalTestSignal ? "ON" : "OFF");
+          this.sampleRateInput.value = this.settings.sampleRate;
+          this.triggerPositionInput.value = this.settings.triggerPosition;
+          this.updateStatusBar();
+        } catch (e) {
+          console.warn('fetchAndApplySettings: could not reach server, using defaults', e);
+        }
+      }
+
       sendSettingsToServer() {
         // Send settings to backend
         fetch(`${API_BASE}/la_configure`, {
