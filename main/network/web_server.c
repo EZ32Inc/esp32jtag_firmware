@@ -27,6 +27,7 @@
 #include "../esp32jtag_common.h"
 #include "../ice40up5k/ice.h"
 #include "../version_info.h"
+#include "version.h"        /* BM FIRMWARE_VERSION from blackmagic_esp32 component */
 #include "mbedtls/base64.h"
 
 static esp_err_t check_auth(httpd_req_t *req) {
@@ -1666,7 +1667,7 @@ static esp_err_t version_handler(httpd_req_t *req) {
     cJSON_AddStringToObject(root, "build_date",            app->date);
     cJSON_AddStringToObject(root, "build_time",            app->time);
     cJSON_AddStringToObject(root, "main_git_commit",       MAIN_GIT_COMMIT);
-    cJSON_AddStringToObject(root, "blackmagic_git_commit", BM_GIT_COMMIT);
+    cJSON_AddStringToObject(root, "blackmagic_git_commit", FIRMWARE_VERSION);
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
