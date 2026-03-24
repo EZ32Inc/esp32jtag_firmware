@@ -504,6 +504,14 @@
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
         </div>
       </div>
+
+      <div class="panel">
+        <h3>Version Information</h3>
+        <div id="versionInfoContent" style="font-family: monospace; font-size: 0.88em;
+             line-height: 2.0; margin-top: 8px; color: #222;">
+          Loading...
+        </div>
+      </div>
     </form>
     <footer>
       <span>&copy; EZ32 Technologies Inc. </span>
@@ -1221,6 +1229,27 @@
           }
         }
       });
+      // Populate Version Information panel on page load
+      (async function() {
+        try {
+          const r = await fetch('/api/version');
+          if (!r.ok) return;
+          const v = await r.json();
+          const el = document.getElementById('versionInfoContent');
+          if (!el) return;
+          el.innerHTML =
+            '<b>Firmware Version:</b> ' + v.firmware_version         + '<br>' +
+            '<b>Hardware Version:</b> ' + v.hardware_version         + '<br>' +
+            '<b>Project:</b>           ' + v.project_name            + '<br>' +
+            '<b>IDF Version:</b>       ' + v.idf_version             + '<br>' +
+            '<b>Build:</b>             ' + v.build_date + ' ' + v.build_time + '<br>' +
+            '<b>Commit (main):</b>    '  + v.main_git_commit         + '<br>' +
+            '<b>Commit (BM):</b>      '  + v.blackmagic_git_commit;
+        } catch(e) {
+          const el = document.getElementById('versionInfoContent');
+          if (el) el.textContent = 'Version info unavailable';
+        }
+      })();
     </script>
 </body>
 
