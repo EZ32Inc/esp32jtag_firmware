@@ -1,245 +1,669 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32JTAG Help & Documentation</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-            background-color: #f4f4f9;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: auto;
-            background: #fff;
-            padding: 20px 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        h1,
-        h2,
-        h3 {
-            color: #1a1a1a;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 5px;
-            margin-top: 25px;
-        }
-
-        h1 {
-            border: none;
-            text-align: center;
-            color: #007BFF;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .tagline {
-            text-align: center;
-            font-style: italic;
-            color: #666;
-            margin-bottom: 30px;
-        }
-
-        .section {
-            margin-bottom: 30px;
-        }
-
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        ul li {
-            background: #e9ecef;
-            padding: 12px 15px;
-            margin-bottom: 8px;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-
-        ul li:hover {
-            background-color: #d8e1e7;
-        }
-
-        .key-feature {
-            font-weight: bold;
-            color: #0056b3;
-        }
-
-        .code-block {
-            background-color: #e8e8e8;
-            padding: 15px;
-            border-radius: 5px;
-            white-space: pre-wrap;
-            font-family: 'Courier New', Courier, monospace;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #007BFF;
-            color: #fff;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-
-        .notice {
-            background-color: #fff3cd;
-            border-left: 5px solid #ffc107;
-            padding: 15px;
-            margin-top: 20px;
-            border-radius: 5px;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ccc;
-            color: #777;
-            font-size: 0.9em;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32JTAG Help Center</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.7;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+      background-color: #f4f4f9;
+    }
+    .container {
+      max-width: 960px;
+      margin: auto;
+      background: #fff;
+      padding: 30px 48px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      border: none;
+      text-align: center;
+      color: #007BFF;
+      font-size: 2.4em;
+      margin-bottom: 4px;
+    }
+    .tagline {
+      text-align: center;
+      font-style: italic;
+      color: #666;
+      margin-bottom: 36px;
+    }
+    h2 {
+      color: #1a1a1a;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 5px;
+      margin-top: 36px;
+    }
+    h3 {
+      color: #0056b3;
+      margin-top: 20px;
+      margin-bottom: 6px;
+    }
+    .section { margin-bottom: 28px; }
+    p { margin: 8px 0; }
+    ol, ul { padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    code {
+      background: #eef2ff;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.92em;
+      color: #c0392b;
+    }
+    .code-block {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 14px 18px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 0.88em;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 9px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #007BFF;
+      color: #fff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background-color: #f7f9ff; }
+    .notice {
+      background-color: #fff8e1;
+      border-left: 5px solid #ffc107;
+      padding: 12px 16px;
+      margin: 14px 0;
+      border-radius: 4px;
+    }
+    .tip {
+      background-color: #e8f5e9;
+      border-left: 5px solid #4caf50;
+      padding: 12px 16px;
+      margin: 14px 0;
+      border-radius: 4px;
+    }
+    .warning {
+      background-color: #fff3f3;
+      border-left: 5px solid #e53935;
+      padding: 12px 16px;
+      margin: 14px 0;
+      border-radius: 4px;
+    }
+    .port-card {
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin: 10px 0;
+      background: #f8faff;
+    }
+    .port-card h4 {
+      margin: 0 0 8px 0;
+      color: #0056b3;
+      font-size: 1em;
+    }
+    .badge {
+      display: inline-block;
+      background: #007BFF;
+      color: #fff;
+      border-radius: 3px;
+      padding: 1px 7px;
+      font-size: 0.8em;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .badge.green  { background: #28a745; }
+    .badge.orange { background: #fd7e14; }
+    .badge.purple { background: #6f42c1; }
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid #ccc;
+      color: #888;
+      font-size: 0.88em;
+    }
+    /* TOC */
+    .toc {
+      background: #f0f4ff;
+      border: 1px solid #c8d6ff;
+      border-radius: 6px;
+      padding: 16px 22px;
+      margin-bottom: 32px;
+    }
+    .toc h3 { margin-top: 0; color: #333; font-size: 1em; }
+    .toc ol { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 3px; }
+    .toc a { color: #0056b3; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+  </style>
 </head>
-
 <body>
+<div class="container">
 
-    <div class="container">
-        <h1>ESP32JTAG Help Center</h1>
-        <p class="tagline">Your all-in-one wireless debugging solution</p>
+  <h1>ESP32JTAG Help Center</h1>
+  <p class="tagline">Wi-Fi enabled all-in-one debug instrument &mdash; Hardware V1.40</p>
 
-        <div class="section">
-            <h2>About ESP32JTAG</h2>
-            <p>ESP32JTAG is an <b>open-source, Wi-Fi-enabled JTAG debugger</b> that consolidates multiple tools—JTAG/SWD
-                debugging, a 16-channel logic analyzer, FPGA configuration, and UART terminal access—into one compact,
-                wireless device. It frees you from the clutter and limitations of traditional wired probes by providing
-                a built-in web server for driver-free operation.</p>
-            <p>It's designed to streamline the workflow for embedded engineers, allowing them to debug and develop from
-                any device with a web browser, anywhere on their Wi-Fi network.</p>
-        </div>
+  <!-- Table of Contents -->
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#quickstart">Quick Start</a></li>
+      <li><a href="#sysconfig">System Configuration</a></li>
+      <li><a href="#ports">Port Configuration Reference</a></li>
+      <li><a href="#mcu-debug">MCU Debugging (Black Magic Probe / GDB)</a></li>
+      <li><a href="#logic-analyzer">Logic Analyzer</a></li>
+      <li><a href="#fpga">FPGA Programming</a></li>
+      <li><a href="#uart">UART Web Terminal</a></li>
+      <li><a href="#ota">Firmware Update (OTA)</a></li>
+      <li><a href="#credentials">Web Interface Credentials</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+      <li><a href="#specs">Technical Specifications</a></li>
+    </ol>
+  </div>
 
-        <div class="section">
-            <h2>Getting Started</h2>
-            <ol>
-                <li><b>Power On:</b> Connect ESP32JTAG to your computer or a 5V power source using the USB Type-C port.
-                </li>
-                <li><b>Connect to Wi-Fi:</b> The device will create a temporary Wi-Fi access point (AP) named
-                    <code>ESP32JTAG-XXXX</code>. Connect to it using your computer or phone.</li>
-                <li><b>Configure Wi-Fi:</b> Open a browser and navigate to <code>http://192.168.4.1</code> to configure
-                    the device to connect to your local network. <i>You can also use the LCD screen to view its current
-                        IP address.</i></li>
-                <li><b>Start Debugging:</b> Once connected to your network, the LCD will display the new IP address. Use
-                    this address to access the web server and configure your debugging session with
-                    <b>GDBServer or Blackmagic Probe</b>.</li>
-            </ol>
-        </div>
+  <!-- 1. Overview -->
+  <div class="section" id="overview">
+    <h2>1. Overview</h2>
+    <p>ESP32JTAG is a compact Wi-Fi-enabled debug instrument built around the ESP32-S3.
+       It combines several tools that embedded engineers typically need as separate pieces
+       of hardware into one device accessible entirely through a web browser:</p>
+    <ul>
+      <li><strong>MCU JTAG / SWD debugger</strong> — based on Black Magic Probe (BMP), exposes a GDB server on TCP port <code>4242</code></li>
+      <li><strong>16-channel logic analyzer</strong> — up to 264 MHz sample rate, browser-based waveform viewer</li>
+      <li><strong>FPGA programmer</strong> — JTAG and SPI configuration, Xilinx Virtual Cable (XVC) server on TCP port <code>2542</code></li>
+      <li><strong>UART web terminal</strong> — browser serial console with configurable baud/parity</li>
+    </ul>
+    <p>All functions share the same four physical connector ports (A–D).
+       Each port is independently configured for the function you need.</p>
+  </div>
 
-        <div class="section">
-            <h2>Key Features</h2>
-            <ul>
-                <li><span class="key-feature">All-in-One Tool:</span> Combines JTAG/SWD debugging, 16-channel logic
-                    analyzer, FPGA programmer, and UART terminal.</li>
-                <li><span class="key-feature">Wireless & Driver-Free:</span> Connect via Wi-Fi 6 or Bluetooth 5.0. No
-                    drivers needed thanks to the built-in web server.</li>
-                <li><span class="key-feature">Versatile Connectivity:</span> Supports popular open-source tools like
-                    Blackmagic Probe and openFPGALoader.</li>
-                <li><span class="key-feature">Open Hardware & Software:</span> Schematics, BOM, and firmware are
-                    open-source, allowing for community collaboration and customization.</li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <h2>Troubleshooting</h2>
-            <ul>
-                <li><b>Can't connect to the Wi-Fi AP?</b> Ensure the device is powered on. If the LCD is off, check the
-                    USB cable. The AP is only active during initial setup or if it fails to connect to a configured
-                    network.</li>
-                <li><b>Can't access the web server?</b> Make sure you are on the same Wi-Fi network as the ESP32JTAG.
-                    Check the IP address on the LCD screen. Try clearing your browser's cache or using an incognito
-                    window.</li>
-                <li><b>The device is not being detected by my IDE?</b> Ensure you've configured your IDE (e.g., VSCode)
-                    to connect to the ESP32JTAG's IP address and the correct port for the debugging protocol.</li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <h2>Technical Specifications</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Details</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Processor</td>
-                        <td>Dual-core ESP32-S3 @ 266 MHz</td>
-                    </tr>
-                    <tr>
-                        <td>Memory</td>
-                        <td>16 MB flash, 8 MB PSRAM</td>
-                    </tr>
-                    <tr>
-                        <td>Connectivity</td>
-                        <td>Wi-Fi 6, Bluetooth 5.0, USB Type-C</td>
-                    </tr>
-                    <tr>
-                        <td>I/O</td>
-                        <td>4 configurable 4-wire ports</td>
-                    </tr>
-                    <tr>
-                        <td>Supported Modes</td>
-                        <td>MCU JTAG/SWD, FPGA JTAG, UART, Logic Analyzer</td>
-                    </tr>
-                    <tr>
-                        <td>Dimensions</td>
-                        <td>33 × 40 × 5 mm</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <h2>Support & Community</h2>
-            <div class="notice">
-                <p>This device is fully open-source! We welcome community contributions and feedback to help us improve.
-                </p>
-            </div>
-            <ul>
-                <li><b>Firmware & Software:</b> Find the latest open-source firmware and tools on our GitHub page.</li>
-                <li><b>Schematics & BOM:</b> Hardware files are available for review and modification.</li>
-                <li><b>Community Forums:</b> Join the discussion on GitHub, Discord, or Matrix channels for live support
-                    and collaboration.</li>
-            </ul>
-        </div>
-
-        <div class="footer">
-            <p>© EZ32 Technologies Inc</p>
-        </div>
+  <!-- 2. Quick Start -->
+  <div class="section" id="quickstart">
+    <h2>2. Quick Start</h2>
+    <ol>
+      <li><strong>Power on.</strong> Connect ESP32JTAG to a 5 V USB-C source.
+          The small LCD turns on and shows the current mode and IP address.</li>
+      <li><strong>First boot — connect to the device AP.</strong>
+          On first boot the device broadcasts a Wi-Fi access point:
+          <ul>
+            <li>SSID: <code>esp32jtag_XXYY</code> &nbsp;(XXYY = last 2 bytes of MAC, shown on LCD)</li>
+            <li>Password: <code>esp32jtag</code></li>
+          </ul>
+      </li>
+      <li><strong>Open the web interface.</strong>
+          Navigate to <code>https://192.168.4.1</code> in your browser.
+          Accept the self-signed TLS certificate warning.
+          Log in with <code>admin</code> / <code>admin</code>.
+      </li>
+      <li><strong>Configure Wi-Fi (optional).</strong>
+          On the <em>System Configurations</em> tab, set Wi-Fi Mode to
+          <em>ST (Station Mode)</em>, enter your network SSID and password,
+          then click <em>Save settings &amp; Restart</em>.
+          The LCD will show the new IP address after reconnection.
+      </li>
+      <li><strong>Configure the ports.</strong>
+          Set Port A–D to the functions you need and click
+          <em>Save settings &amp; Restart</em>.
+      </li>
+      <li><strong>Use the tools.</strong>
+          Access the Logic Analyzer from the top tab.
+          Connect GDB or openFPGALoader to the device IP on the respective TCP port.
+      </li>
+    </ol>
+    <div class="tip">
+      <strong>Tip:</strong> The LCD always shows the current IP address, Wi-Fi mode,
+      and active port functions. Use it as a quick status check without opening a browser.
     </div>
-</body>
+  </div>
 
+  <!-- 3. System Configuration -->
+  <div class="section" id="sysconfig">
+    <h2>3. System Configuration</h2>
+    <p>The <em>System Configurations</em> tab is the main settings page.
+       Changes take effect after clicking <strong>Save settings &amp; Restart</strong>,
+       which saves all settings to flash and reboots the device.</p>
+
+    <h3>Wi-Fi Mode</h3>
+    <table>
+      <thead><tr><th>Mode</th><th>Description</th><th>When to use</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>AP (Access Point)</strong></td>
+          <td>Device creates its own Wi-Fi network.<br>
+              SSID: <code>esp32jtag_XXYY</code>, Password: <code>esp32jtag</code><br>
+              Device IP: <code>192.168.4.1</code></td>
+          <td>No existing network, bench use, or field use.</td>
+        </tr>
+        <tr>
+          <td><strong>ST (Station)</strong></td>
+          <td>Device joins your existing Wi-Fi network.<br>
+              IP assigned by your router (shown on LCD).</td>
+          <td>Lab bench with a shared network; allows multiple clients.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="notice">
+      <strong>Note:</strong> If Station Mode fails to connect (wrong password, out of range),
+      the device automatically falls back to AP Mode so you can always reach it.
+    </div>
+
+    <h3>Target IO Voltage</h3>
+    <p>Sets the voltage output on the Vtarget pin (Port B, when configured as
+       <em>Vtarget + UART + SReset</em>). Match this to your target MCU's IO voltage.</p>
+    <table>
+      <thead><tr><th>Option</th><th>Voltage</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td>3.3V (default)</td><td>3.30 V</td><td>Most 3.3V MCUs, FPGAs</td></tr>
+        <tr><td>2.5V</td><td>2.50 V</td><td>Some FPGAs (e.g. older Xilinx devices)</td></tr>
+        <tr><td>1.8V</td><td>1.80 V</td><td>Low-voltage MCUs, modern FPGAs</td></tr>
+        <tr><td>1.5V</td><td>1.50 V</td><td>Low-voltage FPGA banks</td></tr>
+        <tr><td>1.2V</td><td>1.20 V</td><td>Ultra-low-voltage targets</td></tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>Warning:</strong> Always set the correct Target IO Voltage before connecting
+      to your target. Applying a higher voltage than the target supports can damage it.
+      Default after factory reset is 3.3 V.
+    </div>
+
+    <h3>Set to Default / Factory Reset</h3>
+    <p>The <strong>Set to default</strong> button erases all saved settings from flash
+       and reboots. After reset:</p>
+    <ul>
+      <li>Wi-Fi returns to AP Mode with the default SSID and password</li>
+      <li>All port configurations return to Logic Analyzer</li>
+      <li>Target IO Voltage returns to 3.3 V</li>
+      <li>Web credentials return to <code>admin</code> / <code>admin</code></li>
+      <li>UART settings return to 115200 / 8N1</li>
+    </ul>
+  </div>
+
+  <!-- 4. Port Configuration Reference -->
+  <div class="section" id="ports">
+    <h2>4. Port Configuration Reference</h2>
+    <p>The device has four physical connector ports (A, B, C, D), each with
+       a 4-wire interface. Every port can independently serve as part of the
+       16-channel logic analyzer or be dedicated to a specific function.</p>
+
+    <div class="port-card">
+      <h4><span class="badge">Port A</span> — MCU Debug or Logic Analyzer</h4>
+      <table>
+        <thead><tr><th>Setting</th><th>Function</th><th>Pins used</th></tr></thead>
+        <tbody>
+          <tr><td>Logic Analyzer (default)</td><td>Channels 0–3 of the 16-ch logic analyzer</td><td>All 4 pins as inputs</td></tr>
+          <tr><td>SWD</td><td>Black Magic Probe — SWD interface to target MCU</td><td>SWDCLK, SWDIO</td></tr>
+          <tr><td>JTAG</td><td>Black Magic Probe — JTAG interface to target MCU</td><td>TCK, TMS, TDI, TDO</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="port-card">
+      <h4><span class="badge green">Port B</span> — UART / Target Power or Logic Analyzer</h4>
+      <table>
+        <thead><tr><th>Setting</th><th>Function</th><th>Pins used</th></tr></thead>
+        <tbody>
+          <tr><td>Logic Analyzer (default)</td><td>Channels 4–7 of the 16-ch logic analyzer</td><td>All 4 pins as inputs</td></tr>
+          <tr><td>Vtarget + UART + SReset</td><td>
+            Provides regulated target voltage (Vtarget),<br>
+            UART TX/RX bridged to the UART Web Terminal,<br>
+            and a System Reset output line (SReset) to the target
+          </td><td>Vtarget, TX, RX, SReset</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:8px; font-size:0.9em; color:#555;">
+        <strong>Required for UART Web Terminal:</strong> Port B must be set to
+        <em>Vtarget + UART + SReset</em> before using the UART Web Terminal tab.
+      </p>
+    </div>
+
+    <div class="port-card">
+      <h4><span class="badge orange">Port C</span> — MCU / FPGA Debug or Logic Analyzer</h4>
+      <table>
+        <thead><tr><th>Setting</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><td>Logic Analyzer (default)</td><td>Channels 8–11 of the 16-ch logic analyzer</td></tr>
+          <tr><td>SWD/JTAG</td><td>Black Magic Probe — SWD or JTAG interface to target MCU (alternative to Port A)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="port-card">
+      <h4><span class="badge purple">Port D</span> — FPGA or Logic Analyzer</h4>
+      <table>
+        <thead><tr><th>Setting</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><td>Logic Analyzer (default)</td><td>Channels 12–15 of the 16-ch logic analyzer</td></tr>
+          <tr><td>FPGA XVC</td><td>Xilinx Virtual Cable server (TCP port <code>2542</code>) — JTAG via SPI to FPGA</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice">
+      <strong>Note:</strong> When a port is assigned to a specific function (SWD, UART, FPGA XVC, etc.),
+      its four pins are no longer available as logic analyzer channels.
+      Only ports still set to <em>Logic Analyzer</em> contribute channels to the waveform viewer.
+    </div>
+  </div>
+
+  <!-- 5. MCU Debugging -->
+  <div class="section" id="mcu-debug">
+    <h2>5. MCU Debugging (Black Magic Probe / GDB)</h2>
+    <p>ESP32JTAG embeds the <a href="https://black-magic.org" target="_blank">Black Magic Probe</a>
+       (BMP) firmware. It exposes a GDB server over TCP so any GDB client
+       (arm-none-eabi-gdb, VSCode Cortex-Debug, etc.) can connect without a USB cable.</p>
+
+    <h3>Setup</h3>
+    <ol>
+      <li>Set <strong>Port A</strong> to <em>SWD</em> or <em>JTAG</em>
+          (or Port C to <em>SWD/JTAG</em>) in System Configurations.</li>
+      <li>Click <strong>Save settings &amp; Restart</strong>.</li>
+      <li>Wire the SWD/JTAG signals from Port A (or C) to your target MCU.</li>
+      <li>Connect your GDB client to <code>&lt;device-ip&gt;:4242</code>.</li>
+    </ol>
+
+    <h3>GDB Connection Example</h3>
+    <div class="code-block">arm-none-eabi-gdb your_firmware.elf
+(gdb) target extended-remote 192.168.1.x:4242
+(gdb) monitor swdp_scan          # scan for SWD targets
+(gdb) attach 1
+(gdb) load                       # flash the binary
+(gdb) continue</div>
+
+    <h3>VSCode / Cortex-Debug (launch.json)</h3>
+    <div class="code-block">{
+  "type": "cortex-debug",
+  "request": "attach",
+  "servertype": "external",
+  "gdbTarget": "192.168.1.x:4242",
+  "executable": "${workspaceFolder}/build/your_firmware.elf"
+}</div>
+
+    <div class="tip">
+      <strong>Tip:</strong> The LCD displays <code>GDB:4242</code> on the port status line
+      as a reminder of the GDB server port.
+    </div>
+
+    <h3>Supported Targets</h3>
+    <p>BMP supports a wide range of ARM Cortex-M and Cortex-A targets including
+       STM32, nRF52, RP2040, LPC, SAM, and many others.
+       Run <code>monitor jtag_scan</code> or <code>monitor swdp_scan</code>
+       in GDB to detect connected targets automatically.</p>
+  </div>
+
+  <!-- 6. Logic Analyzer -->
+  <div class="section" id="logic-analyzer">
+    <h2>6. Logic Analyzer</h2>
+    <p>Click the <strong>Logic Analyzer</strong> tab in the top navigation to open the
+       waveform viewer in a new browser tab. No software installation required.</p>
+
+    <h3>Channel Mapping</h3>
+    <table>
+      <thead><tr><th>Port</th><th>Channels</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Port A</td><td>0 – 3</td><td>Port A set to Logic Analyzer</td></tr>
+        <tr><td>Port B</td><td>4 – 7</td><td>Port B set to Logic Analyzer</td></tr>
+        <tr><td>Port C</td><td>8 – 11</td><td>Port C set to Logic Analyzer</td></tr>
+        <tr><td>Port D</td><td>12 – 15</td><td>Port D set to Logic Analyzer</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Sample Rates</h3>
+    <table>
+      <thead><tr><th>Sample Rate</th><th>Min pulse width captured</th></tr></thead>
+      <tbody>
+        <tr><td>264 MHz</td><td>~3.8 ns</td></tr>
+        <tr><td>132 MHz</td><td>~7.6 ns</td></tr>
+        <tr><td>66 MHz</td><td>~15 ns</td></tr>
+        <tr><td>33 MHz</td><td>~30 ns</td></tr>
+        <tr><td>22 MHz</td><td>~45 ns</td></tr>
+        <tr><td>16.5 MHz</td><td>~61 ns</td></tr>
+        <tr><td>11 MHz</td><td>~91 ns</td></tr>
+        <tr><td>6 / 3 / 2 / 1 / 0.5 / 0.26 MHz</td><td>slower signals</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Trigger</h3>
+    <p>Each channel can be independently configured with one of the following trigger modes:</p>
+    <table>
+      <thead><tr><th>Mode</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Disabled</td><td>Channel does not participate in triggering</td></tr>
+        <tr><td>Rising</td><td>Trigger on low→high transition</td></tr>
+        <tr><td>Falling</td><td>Trigger on high→low transition</td></tr>
+        <tr><td>Crossing</td><td>Trigger on any edge</td></tr>
+        <tr><td>High</td><td>Trigger when signal is high</td></tr>
+        <tr><td>Low</td><td>Trigger when signal is low</td></tr>
+      </tbody>
+    </table>
+    <p>Trigger mode (AND / OR) controls how multiple channel triggers combine:</p>
+    <ul>
+      <li><strong>OR:</strong> capture starts when <em>any</em> of the configured channels fires.</li>
+      <li><strong>AND:</strong> capture starts only when <em>all</em> configured channels fire simultaneously.</li>
+    </ul>
+    <p><strong>Trigger Position</strong> sets how much pre-trigger data is retained (0–100%).
+       At 50% the trigger event falls in the middle of the capture window.</p>
+
+    <h3>Controls</h3>
+    <ul>
+      <li><strong>Start Capture</strong> — arms the trigger and begins streaming; waveform updates live.</li>
+      <li><strong>Instant Capture</strong> — captures immediately without waiting for a trigger.</li>
+      <li><strong>Test Signal: ON/OFF</strong> — enables an internal test signal on one channel
+          for verifying connectivity without an external source.</li>
+      <li><strong>Measure: ON/OFF</strong> — enables cursor-based time measurement between two points.</li>
+      <li><strong>Save / Load Capture</strong> — export or import waveform data as a JSON file.</li>
+    </ul>
+
+    <h3>Settings (gear icon)</h3>
+    <p>Open the Settings popup to adjust sample rate, trigger position, trigger enable/disable,
+       trigger mode (OR/AND), capture internal test signal, and per-channel trigger types.
+       Settings are applied immediately on Save.</p>
+  </div>
+
+  <!-- 7. FPGA Programming -->
+  <div class="section" id="fpga">
+    <h2>7. FPGA Programming</h2>
+    <p>ESP32JTAG supports FPGA configuration via JTAG and SPI, and exposes a
+       Xilinx Virtual Cable (XVC) server for use with standard tools.</p>
+
+    <h3>XVC (Xilinx Virtual Cable)</h3>
+    <ol>
+      <li>Set <strong>Port D</strong> to <em>FPGA XVC</em> in System Configurations and restart.</li>
+      <li>Connect the JTAG pins of Port D to your FPGA's JTAG header.</li>
+      <li>Use any XVC-compatible tool and point it to <code>&lt;device-ip&gt;:2542</code>.</li>
+    </ol>
+    <p>Example with <strong>openFPGALoader</strong>:</p>
+    <div class="code-block">openFPGALoader --cable xvc-client --xvc-url tcp:192.168.1.x:2542 \
+  --fpga-part xc7a35t bitstream.bit</div>
+
+    <div class="tip">
+      <strong>Tip:</strong> The LCD shows <code>XVC:2542</code> when Port D is in FPGA XVC mode.
+    </div>
+  </div>
+
+  <!-- 8. UART Web Terminal -->
+  <div class="section" id="uart">
+    <h2>8. UART Web Terminal</h2>
+    <p>The <em>UART Web Terminal</em> tab provides a browser-based serial console
+       bridged to Port B's UART pins.</p>
+
+    <h3>Hardware Setup</h3>
+    <ol>
+      <li>Set <strong>Port B</strong> to <em>Vtarget + UART + SReset</em> in System Configurations.</li>
+      <li>Click <strong>Save settings &amp; Restart</strong>.</li>
+      <li>Connect Port B TX → Target RX, Port B RX → Target TX.</li>
+      <li>Vtarget will supply the configured Target IO Voltage to the target.</li>
+    </ol>
+
+    <h3>UART Settings</h3>
+    <p>Configure baud rate, data bits, stop bits, and parity to match your target device,
+       then click <strong>Save UART Settings</strong>.</p>
+    <table>
+      <thead><tr><th>Parameter</th><th>Options</th><th>Default</th></tr></thead>
+      <tbody>
+        <tr><td>Baud Rate</td><td>9600 / 19200 / 38400 / 57600 / 74880 / 115200 / 230400 / 460800 / 921600</td><td>115200</td></tr>
+        <tr><td>Data Bits</td><td>5 / 6 / 7 / 8</td><td>8</td></tr>
+        <tr><td>Stop Bits</td><td>1 / 1.5 / 2</td><td>1</td></tr>
+        <tr><td>Parity</td><td>None / Even / Odd</td><td>None</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Connecting</h3>
+    <ul>
+      <li><strong>Connect UART</strong> — opens a WebSocket to Port B UART; shows received data and allows sending.</li>
+      <li><strong>Connect ESP32 Log Monitor</strong> — connects to the internal ESP32JTAG debug log stream (useful for firmware diagnostics).</li>
+      <li><strong>Disconnect</strong> — closes the active connection.</li>
+    </ul>
+    <div class="notice">
+      <strong>Note:</strong> UART settings are saved to flash separately from the main System Configuration.
+      Use the <em>Save UART Settings</em> button on the UART tab to persist baud/parity changes.
+    </div>
+  </div>
+
+  <!-- 9. OTA Firmware Update -->
+  <div class="section" id="ota">
+    <h2>9. Firmware Update (OTA)</h2>
+    <p>Update ESP32JTAG firmware wirelessly without a USB cable.</p>
+    <ol>
+      <li>Obtain the new firmware <code>.bin</code> file.</li>
+      <li>Open the web interface and click the <strong>Firmware Update</strong> tab
+          (or navigate to the OTA tab).</li>
+      <li>Drag and drop the <code>.bin</code> file onto the upload area, or click to browse.</li>
+      <li>Click <strong>Upload &amp; Update</strong>. A progress bar shows the upload status.</li>
+      <li>The device reboots automatically into the new firmware when the upload completes.</li>
+    </ol>
+    <div class="warning">
+      <strong>Warning:</strong> Do not power off the device during an OTA update.
+      If the update fails, the device retains the previous firmware and you can retry.
+    </div>
+  </div>
+
+  <!-- 10. Credentials -->
+  <div class="section" id="credentials">
+    <h2>10. Web Interface Credentials</h2>
+    <p>All web pages are protected by HTTP Basic Authentication.</p>
+    <table>
+      <thead><tr><th></th><th>Default value</th></tr></thead>
+      <tbody>
+        <tr><td>Username</td><td><code>admin</code></td></tr>
+        <tr><td>Password</td><td><code>admin</code></td></tr>
+      </tbody>
+    </table>
+    <p>Credentials reset to the defaults above after a factory reset (<em>Set to default</em>).</p>
+    <div class="notice">
+      Custom credential management is planned for a future firmware release.
+    </div>
+  </div>
+
+  <!-- 11. Troubleshooting -->
+  <div class="section" id="troubleshooting">
+    <h2>11. Troubleshooting</h2>
+
+    <h3>Cannot connect to the web interface</h3>
+    <ul>
+      <li>Check the IP address shown on the LCD.</li>
+      <li>In Station Mode, ensure your computer is on the same Wi-Fi network.</li>
+      <li>In AP Mode, connect your computer to the <code>esp32jtag_XXYY</code> SSID.</li>
+      <li>The web server uses HTTPS — your browser will warn about a self-signed certificate; accept and continue.</li>
+      <li>Try a hard refresh (<kbd>Ctrl+Shift+R</kbd> / <kbd>Cmd+Shift+R</kbd>) or an incognito window.</li>
+    </ul>
+
+    <h3>Forgot Wi-Fi password / device unreachable</h3>
+    <p>If you cannot reach the web interface at all, perform a factory reset:</p>
+    <ul>
+      <li>Hold the device's BOOT button while pressing and releasing RESET, then release BOOT.</li>
+      <li>Or, if the web interface is accessible, use <em>Set to default</em> on the System Configurations page.</li>
+    </ul>
+    <p>After reset the device returns to AP Mode with default credentials.</p>
+
+    <h3>GDB cannot connect to port 4242</h3>
+    <ul>
+      <li>Confirm Port A (or C) is set to <em>SWD</em> or <em>JTAG</em> (not Logic Analyzer) and the device has restarted.</li>
+      <li>Verify the device IP using the LCD or <code>ping &lt;ip&gt;</code>.</li>
+      <li>Check your firewall is not blocking TCP port 4242.</li>
+      <li>Run <code>monitor swdp_scan</code> or <code>monitor jtag_scan</code> after attaching to detect the target.</li>
+    </ul>
+
+    <h3>Logic analyzer shows no data / all zeros</h3>
+    <ul>
+      <li>Ensure at least one port is set to <em>Logic Analyzer</em>.</li>
+      <li>Enable the internal <strong>Test Signal</strong> and run Instant Capture to verify the analyzer path works.</li>
+      <li>Check the trigger settings — if a trigger is armed but never fires, the capture will wait indefinitely. Use <em>Instant Capture</em> to bypass triggering.</li>
+      <li>Confirm the probe ground is connected to the target ground.</li>
+    </ul>
+
+    <h3>UART terminal shows no output</h3>
+    <ul>
+      <li>Port B must be set to <em>Vtarget + UART + SReset</em>.</li>
+      <li>Verify TX/RX wiring is not swapped (Port B TX → Target RX; Port B RX → Target TX).</li>
+      <li>Confirm baud rate matches the target device.</li>
+      <li>Check that Target IO Voltage is set correctly — a mismatch can prevent signal detection.</li>
+    </ul>
+
+    <h3>FPGA not detected via XVC</h3>
+    <ul>
+      <li>Port D must be set to <em>FPGA XVC</em> and the device restarted.</li>
+      <li>Verify JTAG wiring: TCK, TMS, TDI, TDO from Port D to the FPGA JTAG header.</li>
+      <li>Confirm the tool is connecting to <code>&lt;device-ip&gt;:2542</code>.</li>
+    </ul>
+
+    <h3>OTA update fails</h3>
+    <ul>
+      <li>Ensure the <code>.bin</code> file is a valid ESP32-S3 firmware image.</li>
+      <li>Keep the device and your computer on the same network with a stable connection.</li>
+      <li>If the upload stalls, refresh the page — the previous firmware is still intact.</li>
+    </ul>
+  </div>
+
+  <!-- 12. Technical Specifications -->
+  <div class="section" id="specs">
+    <h2>12. Technical Specifications</h2>
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Processor</td><td>ESP32-S3, dual-core Xtensa LX7 @ 240 MHz</td></tr>
+        <tr><td>Flash</td><td>16 MB</td></tr>
+        <tr><td>PSRAM</td><td>8 MB</td></tr>
+        <tr><td>Wi-Fi</td><td>802.11 b/g/n (2.4 GHz), AP and Station modes</td></tr>
+        <tr><td>Hardware Version</td><td>V1.40</td></tr>
+        <tr><td>Debug Ports</td><td>4 × 4-wire configurable (A, B, C, D)</td></tr>
+        <tr><td>Logic Analyzer Channels</td><td>Up to 16 (4 per port, ports set to LA mode)</td></tr>
+        <tr><td>Max LA Sample Rate</td><td>264 MHz</td></tr>
+        <tr><td>Target IO Voltage</td><td>1.2 V / 1.5 V / 1.8 V / 2.5 V / 3.3 V (configurable)</td></tr>
+        <tr><td>GDB Server Port</td><td>TCP 4242</td></tr>
+        <tr><td>XVC Server Port</td><td>TCP 2542</td></tr>
+        <tr><td>Web Interface</td><td>HTTPS (TLS), HTTP Basic Auth</td></tr>
+        <tr><td>Debug Protocol</td><td>Black Magic Probe (BMP) — SWD and JTAG</td></tr>
+        <tr><td>FPGA Interface</td><td>XVC, JTAG, SPI</td></tr>
+        <tr><td>USB</td><td>USB-C (power + native USB serial/JTAG)</td></tr>
+        <tr><td>Display</td><td>Small LCD (IP address, Wi-Fi mode, port status)</td></tr>
+        <tr><td>Power Supply</td><td>5 V via USB-C</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p>&copy; EZ32 Technologies Inc. &mdash; ESP32JTAG Firmware v0.1.0 &mdash; Hardware V1.40</p>
+  </div>
+
+</div>
+</body>
 </html>
