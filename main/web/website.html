@@ -498,28 +498,7 @@
 
       <div class="panel">
         <h3>Advanced Settings</h3>
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-          <label style="width: 200px;">MCU SWD/JTAG Interface</label>
-          <label>
-            <input type="radio" name="Interface for MCU SWD/JTAG" value="GPIO" id="if-radio" checked disabled>
-            GPIO
-          </label>
-        </div>
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-          <label style="width: 200px;">UART Connection</label>
-          <label>
-            <input type="radio" name="uart_connection" value="1" id="uart-web-radio" checked disabled>
-            Web Terminal
-          </label>
-        </div>
 
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-          <label style="width: 350px;">Disable USB based CMSIS-DAP and COM port</label>
-          <label class="switch">
-            <input type="checkbox" id="disable-usb-dap-com" checked disabled>
-            <span class="slider"></span>
-          </label>
-        </div>
         <div style="margin-top: 10px;">
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
@@ -620,26 +599,7 @@
       var g_ssid_st = "";
       var g_ssid_ap = "";
       var g_last_wifi_mode = "AP"; // Default
-      var g_last_uart_connection = "0"; // Default USB
 
-      function confirmUartConnectionChange(radio) {
-        /*
-                if (radio.value !== g_last_uart_connection) {
-                  if (confirm("To change UART Connection, will restart system, go on?")) {
-                    // User confirmed, save and restart immediately
-                    sendCredentials();
-                  } else {
-                    // User cancelled, revert the radio button
-                    // We need to find the other radio button and check it.
-                    var otherValue = (g_last_uart_connection === "0") ? "0" : "1";
-                    var otherRadio = document.querySelector('input[name="uart_connection"][value="' + otherValue + '"]');
-                    if (otherRadio) {
-                      otherRadio.checked = true;
-                    }
-                  }
-                }
-        */
-      }
 
       function handleFileInputChange() {
         document.getElementById("upload-button").disabled = false;
@@ -746,9 +706,6 @@
         // Password is usually empty for security, but set it if received
         if (data.password) document.getElementById("password").value = data.password;
 
-        // mcuInterface, uartPortSel are fixed — not loaded from server
-
-        g_last_uart_connection = "1";
 
         if (data.uartBaud) document.getElementById("uart-baud").value = data.uartBaud;
         if (data.uartDataBits) document.getElementById("uart-dbits").value = data.uartDataBits;
@@ -1184,13 +1141,11 @@
         // 1. UART Connection must be "1" (Web Terminal)
         // 2. USB Bridged UART Logging must be Disabled (false)
 
-        var uartConnection = document.querySelector('input[name="uart_connection"]:checked').value;
         var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
         var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
 
-        // Check against current UI state OR confirming saved state
-        if (uartConnection !== "1" || usbLogging === true || g_last_uart_connection !== "1" || g_last_usb_logging === true) {
-          alert("Need to set 'UART Connection' to 'Web Terminal' and disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
+        if (usbLogging === true || g_last_usb_logging === true) {
+          alert("Need to disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
           return;
         }
 
@@ -1205,13 +1160,11 @@
         // 1. UART Connection must be "1" (Web Terminal)
         // 2. USB Bridged UART Logging must be Disabled (false)
 
-        var uartConnection = document.querySelector('input[name="uart_connection"]:checked').value;
         var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
         var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
 
-        // Check against current UI state OR confirming saved state
-        if (uartConnection !== "1" || usbLogging === true || g_last_uart_connection !== "1" || g_last_usb_logging === true) {
-          alert("Need to set 'UART Connection' to 'Web Terminal' and disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
+        if (usbLogging === true || g_last_usb_logging === true) {
+          alert("Need to disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
           return;
         }
 
@@ -1223,24 +1176,7 @@
 
       disconnectButton.addEventListener('click', disconnect);
 
-      // Removed checkbox listener
 
-      function handleDisableUsbDapChange(checkbox) {
-        var uartUsbRadio = document.querySelector('input[name="uart_connection"][value="0"]');
-        var uartWebRadio = document.querySelector('input[name="uart_connection"][value="1"]');
-
-        if (checkbox.checked) {
-          // Force Web Terminal
-          uartWebRadio.checked = true;
-          // Disable UART connection radios
-          uartUsbRadio.disabled = true;
-          uartWebRadio.disabled = true;
-        } else {
-          // Enable UART connection radios
-          uartUsbRadio.disabled = false;
-          uartWebRadio.disabled = false;
-        }
-      }
 
       terminalInput.addEventListener('keydown', (event) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
