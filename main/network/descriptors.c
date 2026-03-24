@@ -15,8 +15,6 @@ const char* get_port_a_description(const char* val) {
 
         case PA_BMP_SWD:       return "SWD";
         case PA_BMP_JTAG:      return "JTAG";
-        case PA_OPENOCD_SWD:   return "OpenOCD SWD";
-        case PA_OPENOCD_JTAG:  return "OpenOCD JTAG";
         default: return val;
     }
 }
@@ -71,7 +69,6 @@ const char* get_target_voltage_description(const char* val) {
 const char* get_sw_mcu_description(const char* val) {
     if (!val) return "N/A";
     if (strcmp(val, "0") == 0) return "BMP (Black Magic Probe)";
-    if (strcmp(val, "1") == 0) return "OpenOCD";
     return val;
 }
 

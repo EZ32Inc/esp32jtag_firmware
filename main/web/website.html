@@ -397,7 +397,6 @@
     <a href="logic_analyzer.html" class="tab" target="_blank" style="text-decoration: none; color: inherit;">Logic
       Analyzer</a>
     <div class="tab" id="uart-tab" onclick="showTab('uart-tab')">UART Web Terminal</div>
-    <!--       <div class="tab" id="openocd-tab" onclick="showTab('openocd-tab')">OpenOCD Configuration</div>   -->
     <div class="tab" id="ota-tab" onclick="showTab('ota-tab')">Firmware Update</div>
     <a href="help" class="tab" target="_blank" style="text-decoration: none; color: inherit;">ESP32JTAG HELP</a>
   </div>
@@ -533,67 +532,6 @@
   </div>
 
 
-  <!--
-    <div id="openocd-tab-form" class="form-container">
-      <form>
-        <label for="config">Target</label>
-        <select id="config" required></select><br><br>
-
-        <div class="form-row">
-          <div class="form-column">
-            <label for="interface">Interface</label>
-            <select id="interface" required>
-              <option value=0>jtag</option>
-              <option value=1>swd</option>
-            </select>
-          </div>
-          <div class="form-column">
-            <label for="rtos">Rtos</label>
-            <select id="rtos" required></select>
-          </div>
-          <div class="form-column">
-            <label for="debug">Debug level</label>
-            <select id="debug" required>
-              <option value="1">1</option>
-              <option value="2" selected>2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="form-row">
-            <label for="dual-core">Dual-core</label>
-            <label class="switch">
-              <input type="checkbox" id="dual-core" checked>
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="form-row">
-            <label for="flash-support">Flash support</label>
-            <label class="switch">
-              <input type="checkbox" id="flash-support" checked>
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <label for="c-param">Command line args</label>
-        <input type="text" id="c-param" required><br><br>
-
-        <button type="button" onclick="sendOpenocdConfig()">Send to ESP Debugger</button>
-      </form>
-
-      <form>
-        <div class="file-upload">
-          <input type="file" id="file-input" accept=".cfg" onchange="handleFileInputChange()">
-          <button type="button" id="upload-button"  class="upload-button" disabled onclick="UploadFile()">Upload a new config file</button>
-          <button type="button" id="delete-button" class="delete-button" onclick="DeleteFile()">Delete a config file</button>
-        </div>
-      </form>
-    </div>
--->
   <div id="ota-tab-form" class="form-container">
     <form>
       <label class="caption">Firmware Update</label>
@@ -752,7 +690,6 @@
       }
       showTab(lastActiveTab);
       showTab(lastActiveTab);
-      // getOpenocdConfig();
       getSystemConfig();
 
       function getSystemConfig() {
@@ -821,43 +758,6 @@
         // disableUsbDapCom is fixed — not loaded from server
       }
 
-      function getOpenocdConfig() {
-        var configDropdown = document.getElementById("config");
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function () {
-          if (xhttp.readyState == 4) {
-            if (xhttp.status == 200) {
-              var responseData = JSON.parse(xhttp.responseText);
-              console.log("Received data:", responseData);
-              populateDropdowns(responseData);
-            } else {
-              console.error("Error:", xhttp.status, xhttp.responseText);
-            }
-          }
-        };
-
-        xhttp.open("GET", "get_openocd_config", true);
-        xhttp.send();
-      }
-
-      function populateDropdowns(jsonData) {
-        var configDropdown = document.getElementById("config");
-        var rtosDropdown = document.getElementById("rtos");
-        configDropdown.innerHTML = "";
-        rtosDropdown.innerHTML = "";
-
-        for (var i = 0; i < jsonData.configList.length; i++) {
-          var option = document.createElement("option");
-          option.text = jsonData.configList[i];
-          configDropdown.add(option);
-        }
-
-        for (var i = 0; i < jsonData.rtosList.length; i++) {
-          var option = document.createElement("option");
-          option.text = jsonData.rtosList[i];
-          rtosDropdown.add(option);
-        }
-      }
 
       function setToDefault() {
         if (confirm("All settings will be set to default values.\nClick OK to continue or Cancel to abort.")) {
@@ -935,29 +835,6 @@
         sendData("/set_credentials", JSON.stringify(data), 'application/json');
       }
 
-      function sendOpenocdConfig() {
-        var target = document.getElementById("config").value;
-        var interface = document.getElementById("interface").value;
-        var rtos = document.getElementById("rtos").value;
-        var debug = document.getElementById("debug").value;
-        var dualCore = document.getElementById("dual-core").checked;
-        var flashSupport = document.getElementById("flash-support").checked;
-        var cParam = document.getElementById("c-param").value;
-
-        console.log("Sending data to the server...");
-        console.log("Target:", target);
-        console.log("Interface:", interface);
-        console.log("Rtos:", rtos);
-        console.log("Debug level:", debug);
-        console.log("Dual-core:", dualCore);
-        console.log("Flash support:", flashSupport);
-        console.log("-c parameter:", cParam);
-
-        var configJson = { target: target, interface: interface, rtos: rtos, debug: debug, dualCore: dualCore, flash: flashSupport, cParam: cParam };
-        var jsonStr = JSON.stringify(configJson)
-        console.log("jsonStr:", jsonStr)
-        sendData("/set_openocd_config", jsonStr, 'application/json');
-      }
 
       function sendData(path, data = null, contentType = "text/plain") {
         var xhttp = new XMLHttpRequest();

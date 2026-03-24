@@ -5,8 +5,6 @@
 
 #define PA_BMP_SWD                 (2)
 #define PA_BMP_JTAG                (3)
-#define PA_OPENOCD_SWD             (4)
-#define PA_OPENOCD_JTAG            (5)
 
 #define PB_LOGICANALYZER           (0)
 #define PB_UART_SRESET_VTARGET     (1)

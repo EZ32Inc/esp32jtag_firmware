@@ -9,7 +9,7 @@ if(${IDF_VERSION_MAJOR} LESS 5)
         "Please use v5.0 or newer.")
 endif()
 
-project(openocd-on-esp32)
+project(esp32jtag)
 idf_build_set_property(COMPILE_OPTIONS "-DPC_HOSTED=0" APPEND)
 idf_build_set_property(COMPILE_OPTIONS "-DENABLE_DEBUG=1" APPEND)
 idf_build_set_property(COMPILE_OPTIONS "-Wno-error=format" APPEND)
