@@ -25,6 +25,7 @@
 #include "types.h"
 #include "uart_websocket.h"
 #include "../esp32jtag_common.h"
+#include "../port_cfg.h"
 #include "../ice40up5k/ice.h"
 #include "../version_info.h"
 #include "version.h"        /* BM FIRMWARE_VERSION from blackmagic_esp32 component */
