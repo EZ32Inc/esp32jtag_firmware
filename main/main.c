@@ -29,7 +29,6 @@
 #include "network_mngr_ota.h"
 #include "web_server.h"
 #include "uart_websocket.h"
-#include "ui.h"
 #include "../components/lcd/lcd_library.h"
 #include "GUI_Paint.h"
 #include "gdb_main.h"
@@ -98,6 +97,8 @@ uint8_t *gbl_spi_rxbuf = NULL;
 #endif
 
 static const char *TAG = "MAIN";
+
+bool SPI_nGPIO = false; // defined here; extern declared in esp32jtag_common.h
 
 //configurations for each ESP32JTAG 4 ports
 uint8_t gbl_pa_cfg = 0;
@@ -951,9 +952,6 @@ void app_main(void) {
     draw_wifi_startup_info();
 
     if (g_app_params.mode == APP_MODE_AP) {
-#if CONFIG_UI_ENABLE
-        ui_show_qr_screen();
-#endif
     } else {
         ESP_LOGI(TAG, "Waiting for the network connection...");
     }
@@ -1005,7 +1003,6 @@ void app_main(void) {
     }
 
     network_get_my_ip(g_app_params.my_ip);
-    ui_update_ip_info(g_app_params.my_ip);
 
     // **** IP address display for STA mode goes here ****
     if (g_app_params.mode == APP_MODE_STA) {
@@ -1026,19 +1023,12 @@ void app_main(void) {
         }
     }
 
-    // Read MCU Interface config, using SPI or GPIO for SWD/JTAG
-    char *mcu_if = NULL;
-    SPI_nGPIO = true;
-    if (storage_alloc_and_read(MCU_INTERFACE_KEY, &mcu_if) == ESP_OK && mcu_if) {
-        ESP_LOGI(TAG, "MCU Interface config read: %s", mcu_if);
-        if (strcmp(mcu_if, "GPIO") == 0) {
-            SPI_nGPIO = false;
-        }
-        free(mcu_if);
-    } else {
-        ESP_LOGW(TAG, "MCU Interface config not found, defaulting to GPIO");
-        SPI_nGPIO = false;
-    }
+    // SPI mode for SWD/JTAG is currently disabled — always use GPIO bitbang.
+    // SPI mode has known issues and is not ready for use.
+    // In the future, this can be re-enabled: the mode will be configurable via
+    // the web interface and persisted in NVS under MCU_INTERFACE_KEY ("SPI"/"GPIO").
+    // When that time comes, restore the NVS read block below and remove this forced assignment.
+    SPI_nGPIO = false;
 
     //set PA and PC for swd_jtag. They are mutual excluded: Either use PA or PC for swd_jtag.
     bool b_use_porta = false; //gbl_pa_cfg == PA_BMP_SWD_JTAG;
