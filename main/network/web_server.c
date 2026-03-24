@@ -1669,6 +1669,66 @@ static esp_err_t la_get_settings_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+/* POST /api/portd_output
+ * Body: {"mode": 0-3, "value": 0-15}
+ * mode 0=tristate, 1=counter_lo, 2=counter_hi, 3=gpio
+ * Requires Port D configured as Logic Analyzer (not XVC). */
+static esp_err_t portd_output_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    cJSON *root = cJSON_CreateObject();
+
+    if (gbl_pd_cfg != PD_LOGICANALYZER) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Port D must be configured as Logic Analyzer (not XVC)");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    char buf[128] = {0};
+    int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (received <= 0) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Empty or invalid body");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    cJSON *body = cJSON_Parse(buf);
+    uint8_t mode  = PORTD_OUT_TRISTATE;
+    uint8_t value = 0;
+    if (body) {
+        cJSON *m = cJSON_GetObjectItem(body, "mode");
+        cJSON *v = cJSON_GetObjectItem(body, "value");
+        if (cJSON_IsNumber(m)) mode  = (uint8_t)(m->valueint & 0x3);
+        if (cJSON_IsNumber(v)) value = (uint8_t)(v->valueint & 0xF);
+        cJSON_Delete(body);
+    }
+
+    set_portd_output(mode, value);
+
+    static const char *mode_names[] = {"tristate", "counter_lo", "counter_hi", "gpio"};
+    cJSON_AddStringToObject(root, "status", "ok");
+    cJSON_AddStringToObject(root, "mode",   mode_names[mode]);
+    cJSON_AddNumberToObject(root, "value",  value);
+    char *js = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, js);
+    free(js);
+    return ESP_OK;
+}
+
 static esp_err_t reset_target_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -1921,6 +1981,13 @@ httpd_uri_t uri_reset_target = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_portd_output = {
+    .uri      = "/api/portd_output",
+    .method   = HTTP_POST,
+    .handler  = portd_output_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_test_start = {
     .uri      = "/test/start",
     .method   = HTTP_POST,
@@ -2014,6 +2081,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
     httpd_register_uri_handler(*http_handle, &uri_version);
     httpd_register_uri_handler(*http_handle, &uri_reset_target);
+    httpd_register_uri_handler(*http_handle, &uri_portd_output);
 
     // Test automation endpoints
     httpd_register_uri_handler(*http_handle, &uri_test_start);

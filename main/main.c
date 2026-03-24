@@ -851,6 +851,35 @@ esp_err_t set_sreset(bool assert_reset)
     return ret1;
 }
 
+/* Control Port D (P3) signal output via data_reg_1 outsig_sel field.
+ * Requires cfgpd=0 (Port D in Logic Analyzer / non-XVC mode).
+ *
+ * mode:
+ *   0 = PORTD_OUT_TRISTATE   — Port D pins tristate (LA input, default)
+ *   1 = PORTD_OUT_COUNTER_LO — drive cnt1[3:0]  (132 MHz free-running counter low nibble)
+ *   2 = PORTD_OUT_COUNTER_HI — drive cnt1[7:4]  (counter high nibble)
+ *   3 = PORTD_OUT_GPIO       — drive data_reg_1[3:0] directly (value = 0..15)
+ */
+esp_err_t set_portd_output(uint8_t mode, uint8_t value)
+{
+    esp_err_t ret;
+    uint8_t tx[3] = {0, 0, 0};
+    uint8_t rx[3] = {0};
+
+    /* outsig_sel → bits [5:4]; gpio_output_data → bits [3:0]; bit [6] untouched */
+    global_data_reg_1 &= ~0x3F;                    /* clear bits [5:0] */
+    global_data_reg_1 |= (mode & 0x3) << 4;        /* set outsig_sel */
+    if (mode == 3) {
+        global_data_reg_1 |= (value & 0xF);        /* set gpio_output_data */
+    }
+
+    tx[0] = global_data_reg_1 | 0x80;              /* write flag */
+    tx[1] = global_data_reg_0;
+    ret = spi_device4_transfer_data(tx, rx, 3);
+    ESP_LOGI(TAG, "set_portd_output: mode=%d val=%d data_reg_1=0x%02x", mode, value, global_data_reg_1);
+    return ret;
+}
+
 bool gbl_sw2_gpio48_flag = false;
 void check_sw1_sw2(void)
 {

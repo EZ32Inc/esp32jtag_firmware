@@ -508,6 +508,30 @@
       </div>
 
       <div class="panel">
+        <h3>Port D (P3) Signal Output</h3>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;">
+          <label style="min-width:60px;">Mode</label>
+          <select id="portd-mode" onchange="portdModeChanged()" style="min-width:180px;">
+            <option value="0">Tristate (LA input)</option>
+            <option value="1">Counter Lo — bits [3:0] @ 132 MHz</option>
+            <option value="2">Counter Hi — bits [7:4] @ 132 MHz</option>
+            <option value="3">GPIO Direct — 4-bit value</option>
+          </select>
+          <span id="portd-value-wrap" style="display:none; align-items:center; gap:6px;">
+            <label>Value (0–15)</label>
+            <input type="number" id="portd-value" min="0" max="15" value="0"
+                   style="width:60px; padding:4px; border:1px solid #ccc; border-radius:4px;">
+          </span>
+          <button type="button" onclick="setPortdOutput()">Apply</button>
+          <span id="portd-status" style="font-size:0.9em; color:#444;"></span>
+        </div>
+        <div style="margin-top:8px; font-size:0.82em; color:#666;">
+          Drives Port D (P3) pins 0–3. Requires Port D configured as <b>Logic Analyzer</b> (not XVC).
+          Connect P3 → P0 to capture output on Logic Analyzer channels 0–3.
+        </div>
+      </div>
+
+      <div class="panel">
         <div style="margin-top: 10px;">
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
@@ -732,6 +756,37 @@
         // disableUsbDapCom is fixed — not loaded from server
       }
 
+
+      function portdModeChanged() {
+        const mode = parseInt(document.getElementById('portd-mode').value);
+        document.getElementById('portd-value-wrap').style.display = (mode === 3) ? 'flex' : 'none';
+      }
+
+      async function setPortdOutput() {
+        const mode  = parseInt(document.getElementById('portd-mode').value);
+        const value = parseInt(document.getElementById('portd-value').value) || 0;
+        const status = document.getElementById('portd-status');
+        status.style.color = '#444';
+        status.textContent = 'Applying…';
+        try {
+          const r = await fetch('/api/portd_output', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mode, value})
+          });
+          const j = await r.json();
+          if (j.status === 'ok') {
+            status.style.color = '#1a7f3c';
+            status.textContent = 'OK — mode: ' + j.mode + (mode === 3 ? ', value: ' + j.value : '');
+          } else {
+            status.style.color = '#c0392b';
+            status.textContent = j.message;
+          }
+        } catch(e) {
+          status.style.color = '#c0392b';
+          status.textContent = 'Request failed: ' + e;
+        }
+      }
 
       async function resetTarget() {
         const btn = document.getElementById('reset-target-btn');

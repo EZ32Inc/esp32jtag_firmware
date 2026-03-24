@@ -68,6 +68,13 @@
 esp_err_t set_la_input_sel(bool use_test_signal);//set or clear LA_INPUT_SEL
 esp_err_t set_sreset(bool assert_reset);          //assert/deassert SRESET on Port B pin3
 
+/* Port D output mode constants (data_reg_1 outsig_sel field) */
+#define PORTD_OUT_TRISTATE    0  /* tristate — LA input (default) */
+#define PORTD_OUT_COUNTER_LO  1  /* drive internal 132 MHz counter bits [3:0] */
+#define PORTD_OUT_COUNTER_HI  2  /* drive internal 132 MHz counter bits [7:4] */
+#define PORTD_OUT_GPIO        3  /* drive 4-bit value from data_reg_1[3:0] */
+esp_err_t set_portd_output(uint8_t mode, uint8_t value); /* mode: PORTD_OUT_* */
+
 extern uint8_t global_data_reg_0; //defined in main/main.c
 extern uint8_t global_data_reg_1;//bit 7 to set wr_and_rd or rread only, bit 6 to 0 reserved
 esp_err_t set_cfga(bool use_porta, bool use_portb, bool use_portc, bool use_portd, bool njtag_swdio, bool swd_gpio);
