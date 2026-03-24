@@ -1707,6 +1707,8 @@ esp_err_t reset_to_factory_handler(httpd_req_t *req) {
     storage_erase_key(UART_DATA_BITS_KEY);
     storage_erase_key(UART_STOP_BITS_KEY);
     storage_erase_key(UART_PARITY_KEY);
+    storage_erase_key(UART_PORT_SEL_KEY);
+    storage_erase_key(DISABLE_USB_DAP_KEY);
 
     httpd_resp_sendstr(req, "Factory reset complete. Rebooting...");
     vTaskDelay(3000 / portTICK_PERIOD_MS);

@@ -416,9 +416,9 @@ static void load_port_configurations(void)
         g_app_params.uart_port_sel = (uint8_t)atoi(val);
         free(val);
     } else {
-        g_app_params.uart_port_sel = 0;
-        storage_write(UART_PORT_SEL_KEY, "0", 2);
-        ESP_LOGI(TAG, "Saved default UART_PORT_SEL=0 to NVS");
+        g_app_params.uart_port_sel = 1;  /* default: web terminal */
+        storage_write(UART_PORT_SEL_KEY, "1", 2);
+        ESP_LOGI(TAG, "Saved default UART_PORT_SEL=1 to NVS");
     }
 
     ESP_LOGI(TAG, "Port A Config: %s", get_port_a_description_int(gbl_pa_cfg));
@@ -543,11 +543,9 @@ static void init_idf_components(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     char *disable_dap_val = NULL;
-    bool disable_usb_dap = false;
+    bool disable_usb_dap = true;  /* default: disabled */
     if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &disable_dap_val) == ESP_OK && disable_dap_val) {
-        if (strcmp(disable_dap_val, "1") == 0) {
-            disable_usb_dap = true;
-        }
+        disable_usb_dap = (strcmp(disable_dap_val, "1") == 0);
         free(disable_dap_val);
     }
 
@@ -1046,11 +1044,9 @@ void app_main(void) {
 _wait:
 
     char *disable_dap_val = NULL;
-    bool disable_usb_dap = false;
+    bool disable_usb_dap = true;  /* default: disabled */
     if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &disable_dap_val) == ESP_OK && disable_dap_val) {
-        if (strcmp(disable_dap_val, "1") == 0) {
-            disable_usb_dap = true;
-        }
+        disable_usb_dap = (strcmp(disable_dap_val, "1") == 0);
         free(disable_dap_val);
     }
 
