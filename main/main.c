@@ -98,7 +98,6 @@ uint8_t *gbl_spi_rxbuf = NULL;
 
 static const char *TAG = "MAIN";
 
-bool SPI_nGPIO = false; // defined here; extern declared in esp32jtag_common.h
 
 //configurations for each ESP32JTAG 4 ports
 uint8_t gbl_pa_cfg = 0;
