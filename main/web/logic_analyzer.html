@@ -247,6 +247,12 @@
         <button id="saveSettingsButton" class="control-button" style="position: static;">Save</button>
         <button id="cancelSettingsButton" class="control-button" style="position: static;">Cancel</button>
       </div>
+
+      <h3 style="margin-top: 20px;">About</h3>
+      <div id="versionInfoPanel" style="font-family: monospace; font-size: 0.82em; color: #94a3b8;
+           line-height: 2.0; border-top: 1px solid #334155; padding-top: 10px; margin-top: 5px;">
+        —
+      </div>
     </div>
   </div>
 
@@ -293,6 +299,7 @@
         this.testSignalToggle = document.getElementById("testSignalToggle");
         this.testSignalTopToggle = document.getElementById("testSignalTopToggle");
         this.statusBar = document.getElementById("statusBar");
+        this.versionInfoPanel = document.getElementById("versionInfoPanel");
 
         // Event Listeners for Canvas
         this.canvas.addEventListener('mouseleave', () => {
@@ -469,6 +476,7 @@
           this.triggerOnToggle.textContent = this.settings.triggerEnabled ? "Trigger ON" : "Trigger OFF";
           this.testSignalToggle.textContent = this.settings.captureInternalTestSignal ? "ON" : "OFF";
           this.settingsPopup.style.display = "flex";
+          this.fetchAndShowVersion();
         });
 
         this.cancelSettingsButton.addEventListener("click", () => {
@@ -608,6 +616,27 @@
           this.updateStatusBar();
         } catch (e) {
           console.warn('fetchAndApplySettings: could not reach server, using defaults', e);
+        }
+      }
+
+      async fetchAndShowVersion() {
+        if (this._versionLoaded) return;
+        try {
+          const response = await fetch(`${API_BASE}/api/version`);
+          if (!response.ok) return;
+          const v = await response.json();
+          this.versionInfoPanel.innerHTML =
+            `<b style="color:#e2e8f0;">Firmware Version:</b> ${v.firmware_version}<br>` +
+            `<b style="color:#e2e8f0;">Hardware Version:</b> ${v.hardware_version}<br>` +
+            `<b style="color:#e2e8f0;">Project:</b>          ${v.project_name}<br>` +
+            `<b style="color:#e2e8f0;">IDF Version:</b>      ${v.idf_version}<br>` +
+            `<b style="color:#e2e8f0;">Build:</b>            ${v.build_date} ${v.build_time}<br>` +
+            `<b style="color:#e2e8f0;">Commit (main):</b>   ${v.main_git_commit}<br>` +
+            `<b style="color:#e2e8f0;">Commit (BM):</b>     ${v.blackmagic_git_commit}`;
+          this._versionLoaded = true;
+        } catch (e) {
+          this.versionInfoPanel.textContent = 'Version info unavailable';
+          console.warn('fetchAndShowVersion failed', e);
         }
       }
 

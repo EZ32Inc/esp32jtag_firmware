@@ -26,6 +26,7 @@
 #include "uart_websocket.h"
 #include "../esp32jtag_common.h"
 #include "../ice40up5k/ice.h"
+#include "../version_info.h"
 #include "mbedtls/base64.h"
 
 static esp_err_t check_auth(httpd_req_t *req) {
@@ -1652,6 +1653,31 @@ static esp_err_t la_get_settings_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t version_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    const esp_app_desc_t *app = esp_app_get_description();
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "project_name",          app->project_name);
+    cJSON_AddStringToObject(root, "firmware_version",      app->version);
+    cJSON_AddStringToObject(root, "hardware_version",      HW_VERSION);
+    cJSON_AddStringToObject(root, "idf_version",           app->idf_ver);
+    cJSON_AddStringToObject(root, "build_date",            app->date);
+    cJSON_AddStringToObject(root, "build_time",            app->time);
+    cJSON_AddStringToObject(root, "main_git_commit",       MAIN_GIT_COMMIT);
+    cJSON_AddStringToObject(root, "blackmagic_git_commit", BM_GIT_COMMIT);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json_str);
+    free(json_str);
+
+    return ESP_OK;
+}
+
 esp_err_t reset_to_factory_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -1831,6 +1857,13 @@ httpd_uri_t uri_la_get_settings = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_version = {
+    .uri      = "/api/version",
+    .method   = HTTP_GET,
+    .handler  = version_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_test_start = {
     .uri      = "/test/start",
     .method   = HTTP_POST,
@@ -1922,6 +1955,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_capture_data);
     httpd_register_uri_handler(*http_handle, &uri_la_configure);
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
+    httpd_register_uri_handler(*http_handle, &uri_version);
 
     // Test automation endpoints
     httpd_register_uri_handler(*http_handle, &uri_test_start);
