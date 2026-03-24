@@ -167,11 +167,6 @@ menu "OpenOCD-on-ESP32 Configuration"
         help
             Sets the verbosity level of debugging output.
 
-    config UI_ENABLE
-        bool "Run on ESP-BOX"
-        depends on IDF_TARGET_ESP32S3
-        default n
-
     config ESP_WIFI_SSID
         string "WiFi SSID"
         default "esp-openocd"

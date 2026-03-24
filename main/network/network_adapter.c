@@ -12,7 +12,6 @@
 #include "network_adapter.h"
 #include "network_mngr.h"
 #include "network.h"
-#include "ui.h"
 
 #define ADAPTER_MAX_RETRY_CNT   10
 
@@ -175,7 +174,6 @@ static esp_err_t wifi_prov_init(struct network *network)
     }
 
     network_mngr_get_ap_ip(&adap_prv->my_ip);
-    ui_update_ip_ssid_info(adap_prv->my_ip, adap_prv->ssid);
 
     return ESP_OK;
 }

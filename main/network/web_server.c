@@ -22,7 +22,6 @@
 #include "descriptors.h"
 #include "storage.h"
 #include "network_mngr_ota.h"
-#include "ui.h"
 #include "types.h"
 #include "uart_websocket.h"
 #include "../esp32jtag_common.h"
@@ -930,7 +929,6 @@ esp_err_t set_credentials_handler(httpd_req_t *req) {
 
     if (reboot_required) {
         httpd_resp_sendstr(req, "Critical settings changed. Rebooting...");
-        ui_show_info_screen("Settings changed. Restarting in 2 seconds...");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
         esp_restart();
     } else {
@@ -1096,94 +1094,6 @@ esp_err_t get_credentials_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-esp_err_t set_openocd_config_handler(httpd_req_t *req) {
-    if (check_auth(req) != ESP_OK) return ESP_OK;
-    char json[req->content_len];
-
-    cJSON *root = set_handler_start(req, json, sizeof(json));
-    if (!root) {
-        return ESP_FAIL;
-    }
-
-    cJSON *target = cJSON_GetObjectItem(root, "target");
-    cJSON *interface = cJSON_GetObjectItem(root, "interface");
-    cJSON *rtos = cJSON_GetObjectItem(root, "rtos");
-    cJSON *debug = cJSON_GetObjectItem(root, "debug");
-    cJSON *dualCore = cJSON_GetObjectItem(root, "dualCore");
-    cJSON *flash = cJSON_GetObjectItem(root, "flash");
-    cJSON *cParam = cJSON_GetObjectItem(root, "cParam");
-
-    // Print the values
-    ESP_LOGI(TAG, "Target: %s", target->valuestring);
-    ESP_LOGI(TAG, "Interface: %s", interface->valuestring[0] == '0' ? "jtag" : "swd");
-    ESP_LOGI(TAG, "RTOS: %s", rtos->valuestring);
-    ESP_LOGI(TAG, "Debug: %s", debug->valuestring);
-    ESP_LOGI(TAG, "Dual Core: %s", dualCore->type == cJSON_True ? "true" : "false");
-    ESP_LOGI(TAG, "Flash: %s", flash->type == cJSON_True ? "true" : "false");
-    ESP_LOGI(TAG, "C Param: %s", cParam->valuestring);
-
-    storage_write(OOCD_CFG_FILE_KEY, target->valuestring, strlen(target->valuestring));
-    storage_write(OOCD_CMD_LINE_ARGS_KEY, cParam->valuestring, strlen(cParam->valuestring));
-    storage_write(OOCD_RTOS_TYPE_KEY, rtos->valuestring, strlen(rtos->valuestring));
-    storage_write(OOCD_INTERFACE_KEY, interface->valuestring, 1);
-    storage_write(OOCD_DBG_LEVEL_KEY, debug->valuestring, 1);
-
-    if (dualCore->type == cJSON_True) {
-        storage_write(OOCD_DUAL_CORE_KEY, "3", 1);
-    } else {
-        storage_write(OOCD_DUAL_CORE_KEY, "1", 1);
-    }
-
-    if (flash->type == cJSON_True) {
-        storage_write(OOCD_FLASH_SUPPORT_KEY, "auto", 4);
-    } else {
-        storage_write(OOCD_FLASH_SUPPORT_KEY, "0", 1);
-    }
-
-    // Cleanup
-    cJSON_Delete(root);
-
-    httpd_resp_sendstr(req, "OpenOCD config is set successfully");
-
-    ui_show_info_screen("OpenOCD parameters have been changed. Restarting in 2 seconds...");
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
-    esp_restart();
-
-    return ESP_OK;
-}
-
-esp_err_t get_openocd_config_handler(httpd_req_t *req) {
-    if (check_auth(req) != ESP_OK) return ESP_OK;
-    // Create the config list array
-    cJSON *config_list = cJSON_CreateArray();
-    for (size_t i = 0; i < g_app_params.target_count; ++i) {
-        cJSON_AddItemToArray(config_list, cJSON_CreateString(g_app_params.target_list[i]));
-    }
-
-    // Create the rtos list array
-    cJSON *rtos_list = cJSON_CreateArray();
-    for (size_t i = 0; i < g_app_params.rtos_count; ++i) {
-        cJSON_AddItemToArray(rtos_list, cJSON_CreateString(g_app_params.rtos_list[i]));
-    }
-
-    // Create the JSON object and add the arrays as properties
-    cJSON *json_object = cJSON_CreateObject();
-    cJSON_AddItemToObject(json_object, "configList", config_list);
-    cJSON_AddItemToObject(json_object, "rtosList", rtos_list);
-
-    // Convert the JSON object to a string
-    char *json_string = cJSON_PrintUnformatted(json_object);
-
-    ESP_LOGD(TAG, "openocd_config json : %s", json_string);
-
-    cJSON_Delete(json_object);
-
-    esp_err_t err = httpd_resp_send(req, json_string, HTTPD_RESP_USE_STRLEN);
-
-    free(json_string);
-
-    return err;
-}
 
 static void get_filename_from_path(const char *path, char *filename, size_t filename_len)
 {
@@ -1742,7 +1652,6 @@ esp_err_t reset_to_factory_handler(httpd_req_t *req) {
     storage_erase_key(UART_PARITY_KEY);
 
     httpd_resp_sendstr(req, "Factory reset complete. Rebooting...");
-    ui_show_info_screen("Factory Reset. Restarting in 3s...");
     vTaskDelay(3000 / portTICK_PERIOD_MS);
     esp_restart();
     return ESP_OK;
@@ -1801,19 +1710,6 @@ httpd_uri_t uri_get_credentials = {
     .user_ctx = NULL
 };
 
-httpd_uri_t uri_set_openocd_config = {
-    .uri = "/set_openocd_config",
-    .method = HTTP_POST,
-    .handler = set_openocd_config_handler,
-    .user_ctx = NULL
-};
-
-httpd_uri_t uri_get_openocd_config = {
-    .uri = "/get_openocd_config",
-    .method = HTTP_GET,
-    .handler = get_openocd_config_handler,
-    .user_ctx = NULL
-};
 
 httpd_uri_t uri_file_upload = {
     .uri       = "/upload/*",
@@ -1971,8 +1867,6 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_get_favicon);
     httpd_register_uri_handler(*http_handle, &uri_set_credentials);
     httpd_register_uri_handler(*http_handle, &uri_get_credentials);
-    httpd_register_uri_handler(*http_handle, &uri_set_openocd_config);
-    httpd_register_uri_handler(*http_handle, &uri_get_openocd_config);
     httpd_register_uri_handler(*http_handle, &uri_file_upload);
     httpd_register_uri_handler(*http_handle, &uri_file_delete);
     httpd_register_uri_handler(*http_handle, &uri_logic_analyzer);

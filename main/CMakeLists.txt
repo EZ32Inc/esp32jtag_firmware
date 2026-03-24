@@ -11,10 +11,6 @@ set(sources
     network/uart_websocket.c
 )
 
-if(CONFIG_UI_ENABLE)
-    list(APPEND sources ui.c ui_events.c)
-endif()
-
 set(dependencies
     fatfs
     driver

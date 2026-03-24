@@ -12,7 +12,6 @@
 #include "network.h"
 #include "network_mngr.h"
 #include "storage.h"
-#include "ui.h"
 #include "types.h"
 #include "port_cfg.h"
 
@@ -349,7 +348,6 @@ esp_err_t storage_update_target_struct(void)
         }
     }
 
-    ui_update_target_list(g_app_params.selected_target_index);
 
     return ESP_OK;
 }
@@ -372,7 +370,6 @@ esp_err_t storage_update_rtos_struct(void) {
         }
     }
 
-    ui_update_rtos_list(g_app_params.selected_rtos_index);
 
     return ESP_OK;
 }

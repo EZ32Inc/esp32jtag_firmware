@@ -14,7 +14,6 @@
 
 #include "storage.h"
 #include "network_mngr.h"
-#include "ui.h"
 #include "GUI_Paint.h"
 
 #define WIFI_START_TIMEOUT              3000
@@ -212,14 +211,6 @@ static esp_err_t register_default_events(esp_netif_t *netif)
     return ESP_OK;
 }
 
-#define RETRY_MSG_LEN 128
-
-static void network_mngr_show_error(int try, int max_try)
-{
-    char msg[RETRY_MSG_LEN] = {0};
-    snprintf(msg, sizeof(msg), "Waiting for the network connection... retry (%d/%d)", try, max_try);
-    ui_show_info_screen(msg);
-}
 
 esp_err_t network_mngr_init(void)
 {
@@ -365,7 +356,6 @@ esp_err_t network_mngr_connect_sta(unsigned int max_retry)
 
         if (status != ESP_OK) {
             ESP_LOGW(TAG, "Wifi connect failed! (Try %d/%d) Error: %s", i + 1, max_retry, esp_err_to_name(status));
-            network_mngr_show_error(i + 1, max_retry);
             vTaskDelay(pdMS_TO_TICKS(1500));
             continue;
         }
@@ -383,11 +373,9 @@ esp_err_t network_mngr_connect_sta(unsigned int max_retry)
             return ESP_OK;
         } else if (bits & WIFI_DISCONNECTED_BIT) {
             ESP_LOGW(TAG, "Wifi disconnected! (Try %d/%d)", i + 1, max_retry);
-            network_mngr_show_error(i + 1, max_retry);
             vTaskDelay(pdMS_TO_TICKS(1500)); // Wait before next retry
         } else {
             ESP_LOGW(TAG, "Wifi connection timeout! (Try %d/%d) EventBits: 0x%" PRIX32, i + 1, max_retry, bits);
-            network_mngr_show_error(i + 1, max_retry);
             vTaskDelay(pdMS_TO_TICKS(1500)); // Wait before next retry
         }
     }
