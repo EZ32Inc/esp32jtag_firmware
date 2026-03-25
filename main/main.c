@@ -880,6 +880,43 @@ esp_err_t set_portd_output(uint8_t mode, uint8_t value)
     return ret;
 }
 
+/* ── Port D frequency toggle ──────────────────────────────────────────────
+ * Drives Port D (P3) pins 0-3 as a square wave (0x00 ↔ 0x0F) using
+ * esp_timer.  freq_hz=0 stops the timer and tristates Port D.
+ * Valid non-zero values: 125, 250, 500, 1000 Hz.
+ */
+static esp_timer_handle_t s_portd_toggle_timer = NULL;
+static volatile uint8_t   s_portd_toggle_state = 0;
+
+static void portd_toggle_cb(void *arg)
+{
+    s_portd_toggle_state ^= 1;
+    set_portd_output(PORTD_OUT_GPIO, s_portd_toggle_state ? 0x0F : 0x00);
+}
+
+esp_err_t set_portd_freq(uint32_t freq_hz)
+{
+    if (s_portd_toggle_timer) {
+        esp_timer_stop(s_portd_toggle_timer);
+        esp_timer_delete(s_portd_toggle_timer);
+        s_portd_toggle_timer = NULL;
+    }
+    if (freq_hz == 0) {
+        return set_portd_output(PORTD_OUT_TRISTATE, 0);
+    }
+    uint64_t half_us = 1000000ULL / (2ULL * freq_hz);
+    esp_timer_create_args_t args = {
+        .callback        = portd_toggle_cb,
+        .arg             = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name            = "portd_tog",
+    };
+    esp_err_t ret = esp_timer_create(&args, &s_portd_toggle_timer);
+    if (ret != ESP_OK) return ret;
+    s_portd_toggle_state = 0;
+    return esp_timer_start_periodic(s_portd_toggle_timer, half_us);
+}
+
 bool gbl_sw2_gpio48_flag = false;
 void check_sw1_sw2(void)
 {

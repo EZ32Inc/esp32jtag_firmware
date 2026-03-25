@@ -74,6 +74,7 @@ esp_err_t set_sreset(bool assert_reset);          //assert/deassert SRESET on Po
 #define PORTD_OUT_COUNTER_HI  2  /* drive internal 132 MHz counter bits [7:4] */
 #define PORTD_OUT_GPIO        3  /* drive 4-bit value from data_reg_1[3:0] */
 esp_err_t set_portd_output(uint8_t mode, uint8_t value); /* mode: PORTD_OUT_* */
+esp_err_t set_portd_freq(uint32_t freq_hz); /* 0=stop+tristate, 125/250/500/1000=Hz square wave */
 
 extern uint8_t global_data_reg_0; //defined in main/main.c
 extern uint8_t global_data_reg_1;//bit 7 to set wr_and_rd or rread only, bit 6 to 0 reserved

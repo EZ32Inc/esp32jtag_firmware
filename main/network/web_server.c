@@ -1988,6 +1988,81 @@ httpd_uri_t uri_portd_output = {
     .user_ctx = NULL
 };
 
+/* POST /api/portd_freq
+ * Body: {"freq_hz": 0|125|250|500|1000}
+ * Starts a square-wave toggle on Port D pins 0-3.  freq_hz=0 stops and
+ * tristates.  Requires Port D in Logic Analyzer mode (not XVC). */
+static esp_err_t portd_freq_handler(httpd_req_t *req)
+{
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    cJSON *root = cJSON_CreateObject();
+
+    if (gbl_pd_cfg != PD_LOGICANALYZER) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Port D must be configured as Logic Analyzer (not XVC)");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    char buf[128] = {0};
+    int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (received <= 0) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Empty body");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    cJSON *body = cJSON_Parse(buf);
+    uint32_t freq_hz = 0;
+    if (body) {
+        cJSON *f = cJSON_GetObjectItem(body, "freq_hz");
+        if (cJSON_IsNumber(f)) freq_hz = (uint32_t)f->valueint;
+        cJSON_Delete(body);
+    }
+
+    if (freq_hz != 0 && freq_hz != 125 && freq_hz != 250 && freq_hz != 500 && freq_hz != 1000) {
+        cJSON_AddStringToObject(root, "status",  "error");
+        cJSON_AddStringToObject(root, "message", "Invalid freq_hz — valid: 0, 125, 250, 500, 1000");
+        char *js = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, js);
+        free(js);
+        return ESP_OK;
+    }
+
+    set_portd_freq(freq_hz);
+
+    cJSON_AddStringToObject(root, "status", "ok");
+    cJSON_AddNumberToObject(root, "freq_hz", (double)freq_hz);
+    char *js = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, js);
+    free(js);
+    return ESP_OK;
+}
+
+httpd_uri_t uri_portd_freq = {
+    .uri      = "/api/portd_freq",
+    .method   = HTTP_POST,
+    .handler  = portd_freq_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_test_start = {
     .uri      = "/test/start",
     .method   = HTTP_POST,
@@ -2082,6 +2157,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_version);
     httpd_register_uri_handler(*http_handle, &uri_reset_target);
     httpd_register_uri_handler(*http_handle, &uri_portd_output);
+    httpd_register_uri_handler(*http_handle, &uri_portd_freq);
 
     // Test automation endpoints
     httpd_register_uri_handler(*http_handle, &uri_test_start);

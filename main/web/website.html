@@ -429,8 +429,14 @@
       <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
         <label for="Port D Configuration" style="display: inline-block; width: 300px;">Port D Configuration</label>
         <select id="pdcfg" required>
-          <option value=0>Logic Analyzer</option>
+          <option value=0>Logic Analyzer (input)</option>
           <option value=1>FPGA XVC</option>
+          <option value=2>Counter Lo — 4 bits @ 132 MHz</option>
+          <option value=3>Counter Hi — 4 bits @ 132 MHz</option>
+          <option value=4>GPIO Direct 125 Hz</option>
+          <option value=5>GPIO Direct 250 Hz</option>
+          <option value=6>GPIO Direct 500 Hz</option>
+          <option value=7>GPIO Direct 1 kHz</option>
         </select>
       </div>
 
@@ -508,30 +514,10 @@
       </div>
 
       <div class="panel">
-        <h3>Port D (P3) Signal Output</h3>
-        <div style="display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;">
-          <label style="min-width:60px;">Mode</label>
-          <select id="portd-mode" onchange="portdModeChanged()" style="min-width:180px;">
-            <option value="0">Tristate (LA input)</option>
-            <option value="1">Counter Lo — bits [3:0] @ 132 MHz</option>
-            <option value="2">Counter Hi — bits [7:4] @ 132 MHz</option>
-            <option value="3">GPIO Direct — 4-bit value</option>
-          </select>
-          <span id="portd-value-wrap" style="display:none; align-items:center; gap:6px;">
-            <label>Value (0–15)</label>
-            <input type="number" id="portd-value" min="0" max="15" value="0"
-                   style="width:60px; padding:4px; border:1px solid #ccc; border-radius:4px;">
-          </span>
-          <button type="button" onclick="setPortdOutput()">Apply</button>
-          <span id="portd-status" style="font-size:0.9em; color:#444;"></span>
+        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <button type="button" id="apply-portd-voltage-btn" onclick="applyPortDAndVoltage()">Apply Port D settings and Target IO Voltage</button>
+          <span id="apply-portd-voltage-status" style="font-size:0.9em; color:#444;"></span>
         </div>
-        <div style="margin-top:8px; font-size:0.82em; color:#666;">
-          Drives Port D (P3) pins 0–3. Requires Port D configured as <b>Logic Analyzer</b> (not XVC).
-          Connect P3 → P0 to capture output on Logic Analyzer channels 0–3.
-        </div>
-      </div>
-
-      <div class="panel">
         <div style="margin-top: 10px;">
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
@@ -757,35 +743,58 @@
       }
 
 
-      function portdModeChanged() {
-        const mode = parseInt(document.getElementById('portd-mode').value);
-        document.getElementById('portd-value-wrap').style.display = (mode === 3) ? 'flex' : 'none';
-      }
-
-      async function setPortdOutput() {
-        const mode  = parseInt(document.getElementById('portd-mode').value);
-        const value = parseInt(document.getElementById('portd-value').value) || 0;
-        const status = document.getElementById('portd-status');
+      async function applyPortDAndVoltage() {
+        const btn    = document.getElementById('apply-portd-voltage-btn');
+        const status = document.getElementById('apply-portd-voltage-status');
+        const pdcfg  = parseInt(document.getElementById('pdcfg').value);
+        btn.disabled = true;
         status.style.color = '#444';
         status.textContent = 'Applying…';
+
+        const msgs = [];
         try {
-          const r = await fetch('/api/portd_output', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({mode, value})
-          });
-          const j = await r.json();
-          if (j.status === 'ok') {
-            status.style.color = '#1a7f3c';
-            status.textContent = 'OK — mode: ' + j.mode + (mode === 3 ? ', value: ' + j.value : '');
-          } else {
-            status.style.color = '#c0392b';
-            status.textContent = j.message;
+          if (pdcfg === 0) {
+            // Logic Analyzer — tristate output
+            const r = await fetch('/api/portd_output', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({mode: 0})
+            });
+            const j = await r.json();
+            msgs.push(j.status === 'ok' ? 'Port D: tristate (LA input)' : 'Port D: ' + j.message);
+          } else if (pdcfg === 1) {
+            msgs.push('FPGA XVC — use Save & Restart to apply routing change');
+          } else if (pdcfg === 2) {
+            const r = await fetch('/api/portd_output', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({mode: 1})
+            });
+            const j = await r.json();
+            msgs.push(j.status === 'ok' ? 'Port D: Counter Lo active' : 'Port D: ' + j.message);
+          } else if (pdcfg === 3) {
+            const r = await fetch('/api/portd_output', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({mode: 2})
+            });
+            const j = await r.json();
+            msgs.push(j.status === 'ok' ? 'Port D: Counter Hi active' : 'Port D: ' + j.message);
+          } else if (pdcfg >= 4 && pdcfg <= 7) {
+            const freqs = [125, 250, 500, 1000];
+            const freq_hz = freqs[pdcfg - 4];
+            const r = await fetch('/api/portd_freq', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({freq_hz})
+            });
+            const j = await r.json();
+            msgs.push(j.status === 'ok' ? 'Port D: GPIO ' + freq_hz + ' Hz active' : 'Port D: ' + j.message);
           }
         } catch(e) {
-          status.style.color = '#c0392b';
-          status.textContent = 'Request failed: ' + e;
+          msgs.push('Port D error: ' + e);
         }
+
+        msgs.push('Voltage: use Save & Restart to apply');
+        status.style.color = pdcfg === 1 ? '#e67e22' : '#1a7f3c';
+        status.textContent = msgs.join('  |  ');
+        btn.disabled = false;
       }
 
       async function resetTarget() {
@@ -821,7 +830,10 @@
         var pacfg = document.getElementById("pacfg").value;
         var pbcfg = document.getElementById("pbcfg").value;
         var pccfg = document.getElementById("pccfg").value;
-        var pdcfg = document.getElementById("pdcfg").value;
+        // Values 2-7 are transient output modes (Counter Lo/Hi, GPIO freq).
+        // The persistent Port D routing config is always 0 (LA) or 1 (XVC).
+        var pdcfgRaw = parseInt(document.getElementById("pdcfg").value);
+        var pdcfg = (pdcfgRaw >= 2) ? "0" : String(pdcfgRaw);
         var targetVoltage = document.getElementById("target_voltage").value;
 
         // sw_mcu is commented out in HTML, handle safely
