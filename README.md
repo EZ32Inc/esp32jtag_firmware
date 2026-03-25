@@ -2,6 +2,13 @@
 
 An all-in-one hardware debugging and development platform built on the ESP32-S3. It combines a JTAG/SWD debugger, 16-channel logic analyzer, FPGA programmer, XVC server, signal generator, and a web-based configuration interface — all accessible over USB or WiFi.
 
+| | |
+|---|---|
+| **Source code** | <https://github.com/EZ32Inc/esp32jtag_firmware> |
+| **Releases** | <https://github.com/EZ32Inc/esp32jtag_firmware/releases> |
+| **Recommended dev tool** | [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) |
+| **Build environment** | ESP-IDF v5.5.2 or newer |
+
 ---
 
 ## Features
@@ -96,15 +103,16 @@ The device has four logical ports (A–D). Each port is configured independently
 
 ### Prerequisites
 
-- [ESP-IDF v5.0 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
+- [ESP-IDF v5.5.2 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
 - Python 3.8+
 - Git
+- Recommended: [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) for automated board bring-up and validation
 
 ### Clone
 
 ```bash
-git clone --recursive https://github.com/<your-org>/esp32jtag.git
-cd esp32jtag
+git clone --recursive https://github.com/EZ32Inc/esp32jtag_firmware.git
+cd esp32jtag_firmware
 ```
 
 ### Build

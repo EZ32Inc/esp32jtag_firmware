@@ -1382,7 +1382,11 @@
             '<b>IDF Version:</b>       ' + v.idf_version             + '<br>' +
             '<b>Build:</b>             ' + v.build_date + ' ' + v.build_time + '<br>' +
             '<b>Commit (main):</b>    '  + v.main_git_commit         + '<br>' +
-            '<b>Commit (BM):</b>      '  + v.blackmagic_git_commit;
+            '<b>Commit (BM):</b>      '  + v.blackmagic_git_commit   + '<br>' +
+            '<br>' +
+            '<b>Source:</b>  <a href="https://github.com/EZ32Inc/esp32jtag_firmware" target="_blank" rel="noopener">github.com/EZ32Inc/esp32jtag_firmware</a><br>' +
+            '<b>Releases:</b> <a href="https://github.com/EZ32Inc/esp32jtag_firmware/releases" target="_blank" rel="noopener">esp32jtag_firmware/releases</a><br>' +
+            '<b>Dev tool:</b> <a href="https://github.com/EZ32Inc/ai-embedded-lab" target="_blank" rel="noopener">AEL (AI Embedded Lab)</a>';
         } catch(e) {
           const el = document.getElementById('versionInfoContent');
           if (el) el.textContent = 'Version info unavailable';
