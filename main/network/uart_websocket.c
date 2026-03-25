@@ -544,7 +544,25 @@ esp_err_t websocket_handler(httpd_req_t *req)
         
         message_buffer[ws_pkt.len] = '\0';
         //ESP_LOGI(TAG, "WS Recv Payload: %s", message_buffer);
-        
+
+        /* Handle control commands immediately — independent of whether
+         * uart_write_task is running (it only starts when Port B is in
+         * UART mode, but the Log Monitor must work in any Port B mode). */
+        if (strcmp(message_buffer, "LOG_ON") == 0) {
+            g_log_monitor_enabled = true;
+            xStreamBufferReset(xDataBuffer);   /* discard stale buffered data */
+            ESP_LOGI(TAG, "Log Monitor ENABLED");
+            free(message_buffer);
+            return ESP_OK;
+        }
+        if (strcmp(message_buffer, "LOG_OFF") == 0) {
+            g_log_monitor_enabled = false;
+            ESP_LOGI(TAG, "Log Monitor DISABLED");
+            free(message_buffer);
+            return ESP_OK;
+        }
+
+        /* All other messages are UART data — forward to uart_write_task */
         if (s_uart_queue == NULL || xQueueSend(s_uart_queue, &message_buffer, 0) != pdTRUE) {
             ESP_LOGE(TAG, "Failed to send message to UART write queue");
             free(message_buffer);
