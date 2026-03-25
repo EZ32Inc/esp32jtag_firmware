@@ -34,6 +34,7 @@ An all-in-one hardware debugging and development platform built on the ESP32-S3.
   - Logic analyzer capture and visualization
   - Debugger target / RTOS / interface selection
   - Port A/B/C/D mode configuration
+  - SRESET polarity (active HIGH / active LOW) and pulse width (1–5000 ms) configuration — applied without reboot via `POST /api/sreset_config`
 
 - **Signal Generation (Port D)**
   - Provides signal stimulus to the target system via Port D pins
@@ -170,6 +171,19 @@ From the main dashboard you can select:
 - **Debug Level** — verbosity (0–4)
 
 Press **Run** to save and reboot with the new configuration.
+
+### Target Reset (Port B)
+
+When Port B is configured as *Vtarget + UART + SReset*, the **Reset Target** button (and `POST /api/reset_target`) sends a configurable reset pulse on Port B pin 3.
+
+Two settings can be changed on the fly via the **Apply SRESET Settings, Port D Settings and Target IO Voltage** button (no reboot needed):
+
+| Setting | Default | Description |
+|---|---|---|
+| **SRESET Polarity** | Negative (active LOW) | *Negative*: idle HIGH, pulse LOW. *Positive*: idle LOW, pulse HIGH. |
+| **Pulse Width** | 100 ms | Duration of the reset pulse in milliseconds (1–5000). |
+
+The settings are applied immediately via `POST /api/sreset_config` and survive until the device reboots.
 
 ---
 

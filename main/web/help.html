@@ -286,22 +286,57 @@
       Default after factory reset is 3.3 V.
     </div>
 
-    <h3>Apply Port D Settings and Target IO Voltage</h3>
-    <p>The <strong>Apply Port D settings and Target IO Voltage</strong> button applies the
-       currently selected Port D output mode to the hardware immediately — no reboot required.
-       This is useful for switching between Counter Lo, Counter Hi, or GPIO Direct frequency
-       modes during a session without saving to flash.</p>
+    <h3>SRESET Polarity &amp; Pulse Width</h3>
+    <p>These two controls configure the reset pulse that is sent when you click
+       <strong>Reset Target</strong> (or call <code>POST /api/reset_target</code>).
+       They take effect immediately when you click
+       <strong>Apply SRESET Settings, Port D Settings and Target IO Voltage</strong>
+       — no reboot is required.</p>
+    <table>
+      <thead><tr><th>Control</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>SRESET Polarity</strong></td>
+          <td>Negative (active LOW)</td>
+          <td>
+            <em>Negative (active LOW)</em> — idle HIGH, pulse LOW. This is the most common
+            convention for microcontroller RESET# pins.<br>
+            <em>Positive (active HIGH)</em> — idle LOW, pulse HIGH. Use for targets that
+            require an active-high reset signal.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Pulse Width</strong></td>
+          <td>100 ms</td>
+          <td>Duration of the reset pulse in milliseconds (1–5000). Most targets only
+              need a few milliseconds; 100 ms provides reliable startup margin.</td>
+        </tr>
+      </tbody>
+    </table>
     <div class="notice">
-      <strong>Note:</strong> Target IO Voltage changes still require
-      <strong>Save settings &amp; Restart</strong> to take effect.
-      Port D output modes selected from the dropdown (Counter Lo/Hi, GPIO Direct) are
-      <em>transient</em> — they are not written to flash and revert to Logic Analyzer after a reboot.
-      Only <em>Logic Analyzer</em> and <em>FPGA XVC</em> are persistent.
+      <strong>Note:</strong> SRESET settings are applied in RAM and are not saved to flash.
+      They revert to the defaults (active LOW, 100 ms) after a reboot.
+    </div>
+
+    <h3>Apply SRESET Settings, Port D Settings and Target IO Voltage</h3>
+    <p>This button applies three groups of settings to the hardware immediately — no reboot required:</p>
+    <ol>
+      <li><strong>SRESET Polarity &amp; Pulse Width</strong> — sent to <code>/api/sreset_config</code>; takes effect on the next Reset Target action.</li>
+      <li><strong>Port D output mode</strong> — switches Port D between Counter Lo/Hi or GPIO Direct frequency modes instantly.</li>
+      <li><strong>Target IO Voltage</strong> — <em>note:</em> voltage changes still require <strong>Save settings &amp; Restart</strong> to take effect; clicking this button alone is not sufficient.</li>
+    </ol>
+    <div class="notice">
+      <strong>Note:</strong> Port D output modes (Counter Lo/Hi, GPIO Direct) are
+      <em>transient</em> — not written to flash. They revert to Logic Analyzer after a reboot.
+      Only <em>Logic Analyzer</em> and <em>FPGA XVC</em> are persistent Port D modes.
     </div>
 
     <h3>Reset Target</h3>
-    <p>The <strong>Reset Target</strong> button sends a 100 ms active-low reset pulse on
-       Port B pin 3 (SReset line). This immediately resets the connected target MCU.</p>
+    <p>The <strong>Reset Target</strong> button sends a configurable reset pulse on
+       Port B pin 3 (SReset line), immediately resetting the connected target MCU.
+       The pulse polarity and width are controlled by the
+       <strong>SRESET Polarity</strong> and <strong>Pulse Width</strong> settings above
+       (default: active LOW, 100 ms).</p>
     <div class="notice">
       <strong>Requires:</strong> Port B must be configured as
       <em>Vtarget + UART + SReset</em> for this button to work.
@@ -375,7 +410,7 @@
         When set to a signal generation mode, all four Port D pins drive a known signal
         that can be used as clock injection, functional excitation, or loopback stimulus
         for the target circuit — without any external signal generator.
-        Apply instantly via <em>Apply Port D settings and Target IO Voltage</em>; no reboot needed.
+        Apply instantly via <em>Apply SRESET Settings, Port D Settings and Target IO Voltage</em>; no reboot needed.
       </p>
       <table>
         <thead><tr><th>Setting</th><th>Function</th><th>Persistent</th></tr></thead>
@@ -392,7 +427,7 @@
       </table>
       <p style="margin-top:8px; font-size:0.9em; color:#555;">
         † <strong>Transient modes</strong> (Counter Lo/Hi, GPIO Direct) take effect immediately
-        when you click <em>Apply Port D settings and Target IO Voltage</em>, but are
+        when you click <em>Apply SRESET Settings, Port D Settings and Target IO Voltage</em>, but are
         <em>not</em> saved to flash. After a reboot the port reverts to Logic Analyzer.
         To apply, use the button — not <em>Save settings &amp; Restart</em>.
       </p>
