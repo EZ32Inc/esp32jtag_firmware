@@ -1,6 +1,19 @@
-# ESP32-S3 Multi-Function Debug Tool
+# Multi-Function Debug Tool for AI-Driven Embedded System Development
 
-An all-in-one hardware debugging and development platform built on the ESP32-S3. It combines a JTAG/SWD debugger, 16-channel logic analyzer, FPGA programmer, XVC server, signal generator, and a web-based configuration interface — all accessible over USB or WiFi.
+ESP32JTAG Firmware is a powerful all-in-one debug and development platform built on the ESP32-S3. It integrates JTAG/SWD debugging, a 16-channel logic analyzer, FPGA programming, XVC server support, signal generation, and a browser-based configuration interface into a single compact device, accessible over Wi-Fi or USB.
+
+What makes ESP32JTAG especially distinctive is its ability to work seamlessly with AI-driven embedded development workflows. It is designed to pair naturally with [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab), enabling AI-assisted coding, flashing, signal capture, measurement, verification, and iterative debugging on real hardware.
+
+| Feature | Description |
+|---|---|
+| JTAG / SWD Debugging | Debug, program, and control supported targets |
+| 16-Channel Logic Analyzer | Capture and analyze digital waveforms |
+| FPGA Programming | Program supported FPGA devices |
+| XVC Server | Enable remote JTAG access via Xilinx Virtual Cable |
+| Signal Generation | Provide digital stimulus signals for testing and validation |
+| Web-Based Interface | Configure and operate the device from a browser |
+| AI-Driven Workflow Support | Integrates with AEL for closed-loop embedded development |
+
 
 | | |
 |---|---|
@@ -15,7 +28,7 @@ An all-in-one hardware debugging and development platform built on the ESP32-S3.
 
 - **JTAG / SWD Debugger**
   - [BlackMagic Probe](https://black-magic.org/) (BMP) — native GDB server
-  - [CMSIS-DAP](https://arm-software.github.io/CMSIS_5/DAP/html/index.html) over USB (CherryDAP)
+  - [CMSIS-DAP](https://arm-software.github.io/CMSIS_5/DAP/html/index.html) over USB ([CherryDAP](https://github.com/cherry-embedded/CherryDAP))
   - [XVC](https://docs.xilinx.com/r/en-US/ug908-vivado-programming-debugging/Virtual-Cable) (Vivado Virtual Cable) for FPGA development
 
 - **16-Channel Logic Analyzer**
