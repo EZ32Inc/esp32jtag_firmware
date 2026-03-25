@@ -541,6 +541,9 @@
     <form>
       <label class="caption">Firmware Update</label>
       <div class="panel">
+        <div id="ota-current-version" style="font-size:0.88em; color:#555; margin-bottom:10px; font-family:monospace;">
+          Current firmware: <span id="ota-fw-version">—</span>
+        </div>
         <label for="ota-file-input">Drag and drop your firmware (.bin) file here, or click to select:</label>
         <div id="ota-drop-area" class="file-upload-drop-area">
           <input type="file" id="ota-file-input" accept=".bin" style="display: none;">
@@ -551,6 +554,7 @@
         <progress id="ota-progress-bar" value="0" max="100"></progress>
         <p id="ota-progress-text">0%</p>
       </div>
+      <div id="ota-status" style="display:none; margin:10px 0; padding:10px 14px; border-radius:5px; font-size:0.95em;"></div>
       <button type="button" id="ota-upload-button" disabled onclick="uploadOtaFirmware()">Upload & Update</button>
     </form>
     <footer>
@@ -673,6 +677,8 @@
         var tab = document.getElementById(tabId);
         tab.classList.add("active");
         lastActiveTab = tabId;
+
+        if (tabId === 'ota-tab') loadOtaVersion();
       }
       showTab(lastActiveTab);
       showTab(lastActiveTab);
@@ -917,26 +923,40 @@
         xhttp.send(data);
       }
 
+      // ── Reboot countdown (used after Save & Restart and after OTA) ─────────
+      function showRebootCountdown(msg, seconds) {
+        var overlay = document.getElementById('reboot-overlay');
+        document.getElementById('reboot-msg').textContent = msg;
+        document.getElementById('reboot-count').textContent = seconds;
+        overlay.style.display = 'flex';
+        var remaining = seconds;
+        var t = setInterval(function () {
+          remaining--;
+          document.getElementById('reboot-count').textContent = remaining;
+          if (remaining <= 0) {
+            clearInterval(t);
+            location.reload();
+          }
+        }, 1000);
+      }
+
+      // ── Handlers for sendData() (save credentials → reboot) ───────────────
       function handleSuccessResponse(responseText) {
-        document.open();
-        document.write(responseText);
-        document.close();
-        showMessage("", responseText);
+        showRebootCountdown('Settings saved. Device rebooting\u2026', 12);
       }
 
       function handleConnectionClosed() {
-        showMessage("Error", "The server connection was unexpectedly terminated!");
-        document.getElementById("ota-upload-button").disabled = false;
+        // sendData path: connection drop after reboot is expected
+        showRebootCountdown('Device rebooting\u2026', 12);
       }
 
       function handleErrorResponse(status, responseText) {
-        showMessage(status + " Error!", responseText);
-        document.getElementById("ota-upload-button").disabled = false;
+        alert(status + ' Error: ' + responseText);
       }
 
       function showMessage(title, message) {
-        alert(title + "\n" + message);
-        location.reload();
+        // Legacy wrapper — kept for any remaining callers
+        showRebootCountdown(message || title, 12);
       }
 
       document.addEventListener("DOMContentLoaded", function () {
@@ -1059,50 +1079,92 @@
 
       });
 
+      var otaExpectedDisconnect = false;
+
+      function otaSetStatus(msg, color) {
+        var el = document.getElementById('ota-status');
+        el.textContent = msg;
+        el.style.background = color === 'green' ? '#e6f9ec' : '#fff0f0';
+        el.style.color      = color === 'green' ? '#1a7a3a' : '#c0392b';
+        el.style.border     = '1px solid ' + (color === 'green' ? '#a3d9b1' : '#f5b7b1');
+        el.style.display    = 'block';
+      }
+
       function uploadOtaFirmware() {
         if (!selectedFile) {
           alert("Please select a firmware file first.");
           return;
         }
-        const formData = new FormData();
+        var formData = new FormData();
         formData.append("firmware", selectedFile, selectedFile.name);
 
-        const progressBar = document.getElementById("ota-progress-bar");
-        const progressText = document.getElementById("ota-progress-text");
-        const progressContainer = document.getElementById("progress-container");
-        const uploadButton = document.getElementById("ota-upload-button");
+        var progressBar      = document.getElementById("ota-progress-bar");
+        var progressText     = document.getElementById("ota-progress-text");
+        var progressContainer = document.getElementById("progress-container");
+        var uploadButton     = document.getElementById("ota-upload-button");
 
-        // Temporarily disable the button
         uploadButton.disabled = true;
         uploadButton.style.backgroundColor = '#ccc';
+        otaExpectedDisconnect = false;
+        document.getElementById('ota-status').style.display = 'none';
 
-        setTimeout(() => {
+        setTimeout(function () {
           progressContainer.style.display = "block";
           var xhttp = new XMLHttpRequest();
+
           xhttp.onreadystatechange = function () {
             if (xhttp.readyState == 4) {
               progressContainer.style.display = "none";
+              progressBar.value = 100;
               if (xhttp.status == 200) {
-                handleSuccessResponse(xhttp.responseText);
+                // Full response received before device reboot
+                otaExpectedDisconnect = true;
+                otaSetStatus('\u2714 Upload complete. Device rebooting\u2026', 'green');
+                showRebootCountdown('Firmware updated successfully. Reconnecting\u2026', 14);
               } else if (xhttp.status == 0) {
-                handleConnectionClosed();
+                if (otaExpectedDisconnect) {
+                  // Connection dropped because device rebooted — this is expected
+                  otaSetStatus('\u2714 Upload complete. Device rebooting\u2026', 'green');
+                  showRebootCountdown('Firmware updated successfully. Reconnecting\u2026', 14);
+                } else {
+                  otaSetStatus('\u2718 Connection lost during upload. Please try again.', 'red');
+                  uploadButton.disabled = false;
+                  uploadButton.style.backgroundColor = '';
+                }
               } else {
-                handleErrorResponse(xhttp.status, xhttp.responseText);
+                otaSetStatus('\u2718 ' + xhttp.status + ' Error: ' + xhttp.responseText, 'red');
+                uploadButton.disabled = false;
+                uploadButton.style.backgroundColor = '';
               }
             }
           };
 
           xhttp.upload.onprogress = function (event) {
             if (event.lengthComputable) {
-              const percentage = Math.round((event.loaded / event.total) * 100);
-              progressBar.value = percentage;
-              progressText.textContent = `${percentage}%`;
+              var pct = Math.round((event.loaded / event.total) * 100);
+              progressBar.value = pct;
+              progressText.textContent = pct + '%';
+              // Once upload reaches 100%, device is writing to flash — mark expected disconnect
+              if (pct === 100) otaExpectedDisconnect = true;
             }
           };
 
           xhttp.open("POST", "/ota_upload", true);
           xhttp.send(formData);
         }, 50);
+      }
+
+      function loadOtaVersion() {
+        fetch('/api/version')
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(v) {
+            if (v) {
+              document.getElementById('ota-fw-version').textContent =
+                v.firmware_version + '  (build ' + v.build_date + ' ' + v.build_time +
+                '  commit ' + v.main_git_commit + ')';
+            }
+          })
+          .catch(function() {});
       }
 
       let ws;
@@ -1349,6 +1411,14 @@
         }
       })();
     </script>
+  <!-- Reboot countdown overlay (shown after save-and-restart or OTA) -->
+  <div id="reboot-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+       background:rgba(0,0,0,0.72); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:36px 48px; border-radius:10px; text-align:center; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+      <p id="reboot-msg" style="font-size:1.1em; margin:0 0 14px 0; color:#222;"></p>
+      <p style="margin:0; color:#555;">Reconnecting in <strong id="reboot-count" style="font-size:1.3em; color:#007bff;"></strong> s&hellip;</p>
+    </div>
+  </div>
 </body>
 
 </html>

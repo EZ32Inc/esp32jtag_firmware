@@ -189,6 +189,7 @@
     <ul>
       <li><strong>MCU JTAG / SWD debugger</strong> — based on Black Magic Probe (BMP), exposes a GDB server on TCP port <code>4242</code></li>
       <li><strong>16-channel logic analyzer</strong> — up to 264 MHz sample rate, browser-based waveform viewer</li>
+      <li><strong>Signal generator (Port D)</strong> — drives known signals onto the target circuit for stimulus and loopback testing: FPGA free-running counter at 132 MHz (bits [3:0] or [7:4]) and software square waves at 125 / 250 / 500 / 1000 Hz; applied instantly from the web UI without rebooting</li>
       <li><strong>FPGA programmer</strong> — JTAG and SPI configuration, Xilinx Virtual Cable (XVC) server on TCP port <code>2542</code></li>
       <li><strong>UART web terminal</strong> — browser serial console with configurable baud/parity</li>
     </ul>

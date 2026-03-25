@@ -487,13 +487,15 @@ static esp_err_t ota_upload_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
-    char *buf = (char *)malloc(4096);
+#define OTA_HOLDBACK 132  /* must be > any realistic multipart boundary length */
+    char *buf = (char *)malloc(4096 + OTA_HOLDBACK);
     if (buf == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for buffer");
         esp_ota_abort(ota_handle);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Memory allocation failed");
         return ESP_FAIL;
     }
+    int tail_len = 0;  /* bytes held back from previous chunk to detect cross-chunk boundary */
 
     // Get the boundary from the header
     size_t len = httpd_req_get_hdr_value_len(req, "Content-Type");
@@ -533,97 +535,102 @@ static esp_err_t ota_upload_handler(httpd_req_t *req) {
     int data_read;
     int total_len = 0;
     bool found_firmware = false;
-    
-    // Read the entire request body to find the firmware data
-    while ((data_read = httpd_req_recv(req, buf, 4096)) > 0) {
-        if (!found_firmware) {
-            // Check for the boundary line that precedes the file data
-            char *firmware_start = NULL;
-            // Since we are looking for string in the header part (text), strstr is okay for looking for boundary start
-            // BUT, to be consistent and safe, let's use memcmp as well if we were searching largely.
-            // However, the header part IS text. The boundary itself is text.
-            // The issue is if null bytes appear BEFORE the start boundary (unlikely in HTTP multipart)
-            // or if we rely on strstr to find \r\n\r\n
 
-            // Search for boundary line
-            for (int i = 0; i <= data_read - boundary_len; i++) {
+    /* Phase 1: scan for multipart start boundary + \r\n\r\n header separator */
+    while ((data_read = httpd_req_recv(req, buf + tail_len, 4096)) > 0) {
+        int scan_len = tail_len + data_read;
+        if (!found_firmware) {
+            char *firmware_start = NULL;
+            for (int i = 0; i <= scan_len - boundary_len; i++) {
                 if (memcmp(buf + i, boundary_line, boundary_len) == 0) {
-                     firmware_start = buf + i;
-                     break;
+                    firmware_start = buf + i;
+                    break;
                 }
             }
-
             if (firmware_start != NULL) {
-                // Find the double CRLF following the boundary to determine start of data
                 char *data_start = NULL;
-                // Start searching from where boundary was found
                 int search_start_idx = firmware_start - buf;
-
-                // We need to find \r\n\r\n.
-                // Note: The multipart header can be larger.
-
-                for (int i = search_start_idx; i <= data_read - 4; i++) {
-                     if (memcmp(buf + i, "\r\n\r\n", 4) == 0) {
-                         data_start = buf + i + 4;
-                         break;
-                     }
+                for (int i = search_start_idx; i <= scan_len - 4; i++) {
+                    if (memcmp(buf + i, "\r\n\r\n", 4) == 0) {
+                        data_start = buf + i + 4;
+                        break;
+                    }
                 }
-
                 if (data_start != NULL) {
                     found_firmware = true;
-                    int header_len = data_start - buf;
-                    int data_len_in_buf = data_read - header_len;
-
-                    err = esp_ota_write(ota_handle, data_start, data_len_in_buf);
-                    if (err != ESP_OK) {
-                        ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
-                        free(buf);
-                        esp_ota_abort(ota_handle);
-                        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
-                        return ESP_FAIL;
+                    int data_len_in_buf = (int)(buf + scan_len - data_start);
+                    /* Write initial firmware bytes, holding back OTA_HOLDBACK bytes
+                     * so that a cross-chunk end-boundary is detected in Phase 2. */
+                    if (data_len_in_buf > OTA_HOLDBACK) {
+                        err = esp_ota_write(ota_handle, data_start,
+                                            data_len_in_buf - OTA_HOLDBACK);
+                        if (err != ESP_OK) {
+                            ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
+                            free(buf); esp_ota_abort(ota_handle);
+                            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
+                            return ESP_FAIL;
+                        }
+                        total_len += data_len_in_buf - OTA_HOLDBACK;
+                        memmove(buf, data_start + data_len_in_buf - OTA_HOLDBACK, OTA_HOLDBACK);
+                        tail_len = OTA_HOLDBACK;
+                    } else {
+                        memmove(buf, data_start, data_len_in_buf);
+                        tail_len = data_len_in_buf;
                     }
-                    total_len += data_len_in_buf;
+                    break; /* move to Phase 2 */
                 }
             }
-        } else {
-            // Search for the end boundary in the current chunk
-            char *end_boundary = NULL;
-             for (int i = 0; i <= data_read - boundary_len; i++) {
-                if (memcmp(buf + i, boundary_line, boundary_len) == 0) {
-                     end_boundary = buf + i;
-                     break;
-                }
-            }
+            tail_len = 0; /* header not yet found; discard buffered data */
+        }
+    }
 
-            if (end_boundary != NULL) {
-                // We've found the end of the file, write the remaining data
-                // The data ends before (end_boundary - 2) which is the \r\n before header
-                int final_len = end_boundary - buf - 2;
+    /* Phase 2: stream firmware data, detecting end boundary across chunk boundaries */
+    while (found_firmware &&
+           (data_read = httpd_req_recv(req, buf + tail_len, 4096)) > 0) {
+        int combined = tail_len + data_read;
 
-                // Sanity check
-                if (final_len < 0) final_len = 0; // Should not happen if protocol obeyed
-
-                err = esp_ota_write(ota_handle, buf, final_len);
-                if (err != ESP_OK) {
-                    ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
-                    free(buf);
-                    esp_ota_abort(ota_handle);
-                    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
-                    return ESP_FAIL;
-                }
-                total_len += final_len;
+        /* Search for end boundary in combined [tail | new_data] */
+        char *end_pos = NULL;
+        for (int i = 0; i <= combined - boundary_len; i++) {
+            if (memcmp(buf + i, boundary_line, boundary_len) == 0) {
+                end_pos = buf + i;
                 break;
-            } else {
-                // Regular data chunk
-                err = esp_ota_write(ota_handle, buf, data_read);
+            }
+        }
+
+        if (end_pos != NULL) {
+            /* End boundary found: write up to (and not including) the \r\n before it */
+            int wlen = (int)(end_pos - buf) - 2;
+            if (wlen < 0) wlen = 0;
+            if (wlen > 0) {
+                err = esp_ota_write(ota_handle, buf, wlen);
                 if (err != ESP_OK) {
                     ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
-                    free(buf);
-                    esp_ota_abort(ota_handle);
+                    free(buf); esp_ota_abort(ota_handle);
                     httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
                     return ESP_FAIL;
                 }
-                total_len += data_read;
+                total_len += wlen;
+            }
+            tail_len = 0;
+            break;
+        } else {
+            /* No end boundary yet: write all but last OTA_HOLDBACK bytes */
+            int wlen = combined - OTA_HOLDBACK;
+            if (wlen > 0) {
+                err = esp_ota_write(ota_handle, buf, wlen);
+                if (err != ESP_OK) {
+                    ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
+                    free(buf); esp_ota_abort(ota_handle);
+                    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
+                    return ESP_FAIL;
+                }
+                total_len += wlen;
+                memmove(buf, buf + wlen, OTA_HOLDBACK);
+                tail_len = OTA_HOLDBACK;
+            } else {
+                /* combined <= OTA_HOLDBACK: all data held in tail; nothing to write yet */
+                tail_len = combined;
             }
         }
     }
