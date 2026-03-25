@@ -150,6 +150,25 @@ Or using idf.py during development:
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
+### Recovery Mode (firmware crash / cannot flash normally)
+
+If the firmware has crashed or is stuck in a boot loop and normal flashing fails, force the device into ROM download mode using the **BOOT0** button (SW1, GPIO0):
+
+1. **Power off** the device (disconnect USB).
+2. **Hold** the **BOOT0** button (SW1) and keep it held.
+3. **Power on** (reconnect USB) while still holding BOOT0.
+4. **Release** BOOT0 after about one second.
+
+The device is now in ROM download mode — the LCD shows no output. Flash using the `_full.bin` file:
+
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
+  --before no_reset --after hard_reset \
+  write_flash 0x0 esp32jtag_v<VER>_<DATE>_<GIT>_full.bin
+```
+
+> Use `_full.bin` only — the `_ota.bin` file cannot be used in recovery mode because the web interface does not start.
+
 ---
 
 ## First Boot

@@ -656,6 +656,24 @@ esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
   --before default_reset --after hard_reset \
   write_flash 0x0 esp32jtag_v&lt;VER&gt;_&lt;DATE&gt;_&lt;GIT&gt;_full.bin</code></pre>
     <p>On Windows replace <code>/dev/ttyUSB0</code> with the appropriate COM port (e.g. <code>COM3</code>).</p>
+
+    <h3>Recovery Mode — firmware crash / cannot flash normally</h3>
+    <p>If the firmware has crashed or is stuck in a boot loop and normal flashing fails,
+    force the ESP32-S3 into ROM download mode using the <strong>BOOT0</strong> button:</p>
+    <ol>
+      <li><strong>Power off</strong> the device (disconnect USB).</li>
+      <li><strong>Hold</strong> the <strong>BOOT0</strong> button (SW1, GPIO0) and keep it held.</li>
+      <li><strong>Power on</strong> (reconnect USB) while still holding BOOT0.</li>
+      <li><strong>Release</strong> BOOT0 after about one second.</li>
+    </ol>
+    <p>The device is now in ROM download mode. The LCD shows no output — this is normal.
+    Flash the <code>_full.bin</code> file using the esptool command above.
+    The device will boot normally once flashing completes.</p>
+    <div class="warning">
+      <strong>Note:</strong> Recovery mode requires the <code>_full.bin</code> (merged) file —
+      not the <code>_ota.bin</code> file. OTA upload is not available in recovery mode because
+      the web interface does not start.
+    </div>
   </div>
 
   <!-- 10. Credentials -->
