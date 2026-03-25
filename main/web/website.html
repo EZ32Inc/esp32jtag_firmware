@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <meta charset="UTF-8">
   <title>ESP32JTAG Web Interface</title>
   <style>
     body {
@@ -1225,7 +1226,7 @@
           return;
         }
 
-        terminalDisplay.innerHTML = '<span style="color:#aaa">Connecting…</span>\n';
+        terminalDisplay.innerHTML = '<span style="color:#aaa">Connecting&hellip;</span>\n';
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
