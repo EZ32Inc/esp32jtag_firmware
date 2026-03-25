@@ -1,6 +1,6 @@
 # ESP32-S3 Multi-Function Debug Tool
 
-An all-in-one hardware debugging and development platform built on the ESP32-S3. It combines a JTAG/SWD debugger, 16-channel logic analyzer, FPGA programmer, XVC server, and a web-based configuration interface — all accessible over USB or WiFi.
+An all-in-one hardware debugging and development platform built on the ESP32-S3. It combines a JTAG/SWD debugger, 16-channel logic analyzer, FPGA programmer, XVC server, signal generator, and a web-based configuration interface — all accessible over USB or WiFi.
 
 ---
 
@@ -34,6 +34,13 @@ An all-in-one hardware debugging and development platform built on the ESP32-S3.
   - Logic analyzer capture and visualization
   - Debugger target / RTOS / interface selection
   - Port A/B/C/D mode configuration
+
+- **Signal Generation (Port D)**
+  - Provides signal stimulus to the target system via Port D pins
+  - FPGA internal free-running counter output: bits [3:0] or [7:4] at 132 MHz
+  - Software square wave: 125 / 250 / 500 / 1000 Hz on all four Port D pins (~50% duty)
+  - Useful for clock injection, loopback self-test, and functional excitation of target circuits
+  - Applied instantly via web UI — no reboot required
 
 - **UART / USB**
   - USB CDC or WebSocket-based UART bridge
@@ -80,7 +87,7 @@ The device has four logical ports (A–D). Each port is configured independently
 | **A** | Logic Analyzer · BMP SWD · BMP JTAG |
 | **B** | Logic Analyzer · UART + Reset + Target Voltage |
 | **C** | Logic Analyzer · BMP SWD/JTAG · FPGA JTAG config · FPGA SPI config |
-| **D** | Logic Analyzer · FPGA XVC · FPGA JTAG GPIO · FPGA SPI GPIO |
+| **D** | Logic Analyzer · FPGA XVC · Signal Generation (Counter Lo/Hi @ 132 MHz, GPIO Direct 125/250/500/1000 Hz) |
 
 ---
 
