@@ -114,18 +114,40 @@ cd esp32jtag
 idf.py build
 ```
 
-### Flash
+After a successful build two versioned release binaries are automatically generated in the `build/` directory:
+
+| File | Purpose |
+|---|---|
+| `esp32jtag_v<VER>_<DATE>_<GIT>_ota.bin` | OTA wireless update (primary method) |
+| `esp32jtag_v<VER>_<DATE>_<GIT>_full.bin` | Full merged flash image (factory / mass programming) |
+
+Example filenames:
+```
+esp32jtag_v0.1.0_20260325_085159_c14c3fe_ota.bin
+esp32jtag_v0.1.0_20260325_085159_c14c3fe_full.bin
+```
+
+The filename encodes version, UTC build timestamp, and git commit so you can always tell which is newer.
+
+### Firmware Update — OTA (primary, no USB cable required)
+
+1. Open `https://<device-ip>/ota_upload` in your browser.
+2. Select the `_ota.bin` file and click **Upload & Update**.
+3. The device reboots automatically into the new firmware.
+
+### Firmware Update — USB flash (factory / first-time programming)
+
+```bash
+# Using the full merged binary (single write from offset 0x0)
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 esp32jtag_v<VER>_<DATE>_<GIT>_full.bin
+```
+
+Or using idf.py during development:
 
 ```bash
 idf.py -p /dev/ttyUSB0 flash monitor
-```
-
-Or merge into a single binary for mass programming:
-
-```bash
-cd build
-esptool.py --chip esp32s3 merge_bin -o esp32jtag_merged.bin @flash_args
-esptool.py --chip esp32s3 -p /dev/ttyUSB0 write_flash 0x0 esp32jtag_merged.bin
 ```
 
 ---

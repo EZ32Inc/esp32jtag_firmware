@@ -616,20 +616,46 @@
 
   <!-- 9. OTA Firmware Update -->
   <div class="section" id="ota">
-    <h2>9. Firmware Update (OTA)</h2>
-    <p>Update ESP32JTAG firmware wirelessly without a USB cable.</p>
+    <h2>9. Firmware Update</h2>
+    <p>Two release binaries are produced by every build. The filename encodes version, UTC build timestamp, and git commit so you can always identify which is newer:</p>
+    <table>
+      <thead><tr><th>File suffix</th><th>Use for</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>_ota.bin</code></td>
+          <td>Wireless OTA update (primary method — no USB cable needed)</td>
+          <td><code>esp32jtag_v0.1.0_20260325_085159_c14c3fe_ota.bin</code></td>
+        </tr>
+        <tr>
+          <td><code>_full.bin</code></td>
+          <td>Full flash via USB (factory / first-time programming)</td>
+          <td><code>esp32jtag_v0.1.0_20260325_085159_c14c3fe_full.bin</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>OTA Update (wireless)</h3>
     <ol>
-      <li>Obtain the new firmware <code>.bin</code> file.</li>
-      <li>Open the web interface and click the <strong>Firmware Update</strong> tab
-          (or navigate to the OTA tab).</li>
-      <li>Drag and drop the <code>.bin</code> file onto the upload area, or click to browse.</li>
-      <li>Click <strong>Upload &amp; Update</strong>. A progress bar shows the upload status.</li>
+      <li>Download the <code>_ota.bin</code> file for the target release.</li>
+      <li>Open <code>https://&lt;device-ip&gt;/ota_upload</code> in your browser.</li>
+      <li>Drag and drop the <code>_ota.bin</code> file onto the upload area, or click to browse.</li>
+      <li>Click <strong>Upload &amp; Update</strong>. A progress bar shows upload status.</li>
       <li>The device reboots automatically into the new firmware when the upload completes.</li>
     </ol>
     <div class="warning">
       <strong>Warning:</strong> Do not power off the device during an OTA update.
       If the update fails, the device retains the previous firmware and you can retry.
     </div>
+
+    <h3>USB Flash (factory / first-time programming)</h3>
+    <p>Use the <code>_full.bin</code> file with <code>esptool</code>. This writes the
+    complete flash image (bootloader + partition table + firmware) from offset 0x0:</p>
+    <pre><code>pip install esptool   # one-time install
+
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 esp32jtag_v&lt;VER&gt;_&lt;DATE&gt;_&lt;GIT&gt;_full.bin</code></pre>
+    <p>On Windows replace <code>/dev/ttyUSB0</code> with the appropriate COM port (e.g. <code>COM3</code>).</p>
   </div>
 
   <!-- 10. Credentials -->
