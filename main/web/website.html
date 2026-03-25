@@ -503,8 +503,18 @@
       </div>
 
       <div class="panel">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+          <label for="sreset-polarity" style="display: inline-block; width: 120px; font-size: 0.9em;">SRESET Polarity</label>
+          <select id="sreset-polarity" style="width: 190px;">
+            <option value="0">Positive (active HIGH)</option>
+            <option value="1">Negative (active LOW)</option>
+          </select>
+          <label for="sreset-pulse-ms" style="font-size: 0.9em; margin-left: 10px;">Pulse Width</label>
+          <input type="number" id="sreset-pulse-ms" value="100" min="1" max="5000" style="width: 65px;">
+          <span style="font-size: 0.9em;">ms</span>
+        </div>
         <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-          <button type="button" id="apply-portd-voltage-btn" onclick="applyPortDAndVoltage()">Apply Port D settings and Target IO Voltage</button>
+          <button type="button" id="apply-portd-voltage-btn" onclick="applyPortDAndVoltage()">Apply SRESET Settings, Port D Settings and Target IO Voltage</button>
           <span id="apply-portd-voltage-status" style="font-size:0.9em; color:#444;"></span>
         </div>
         <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
@@ -512,7 +522,7 @@
           <span id="reset-target-status" style="margin-left: 14px; font-size: 0.9em; color: #444;"></span>
         </div>
         <div style="margin-top: 8px; font-size: 0.82em; color: #666;">
-          Sends a 100 ms reset pulse on Port B pin 3. Requires Port B configured as <b>Vtarget + UART + SReset</b>.
+          Sends a reset pulse on Port B pin 3 using the configured polarity and pulse width. Requires Port B configured as <b>Vtarget + UART + SReset</b>.
         </div>
       </div>
 
@@ -757,6 +767,27 @@
         status.textContent = 'Applying…';
 
         const msgs = [];
+
+        // Apply SRESET settings
+        try {
+          const polarity  = parseInt(document.getElementById('sreset-polarity').value);
+          const pulse_ms  = parseInt(document.getElementById('sreset-pulse-ms').value);
+          if (isNaN(pulse_ms) || pulse_ms < 1 || pulse_ms > 5000) {
+            msgs.push('SRESET: pulse width must be 1–5000 ms');
+          } else {
+            const r = await fetch('/api/sreset_config', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({polarity, pulse_ms})
+            });
+            const j = await r.json();
+            msgs.push(j.status === 'ok'
+              ? 'SRESET: ' + (polarity ? 'active LOW' : 'active HIGH') + ', ' + pulse_ms + ' ms'
+              : 'SRESET: ' + j.message);
+          }
+        } catch(e) {
+          msgs.push('SRESET error: ' + e);
+        }
+
         try {
           if (pdcfg === 0) {
             // Logic Analyzer — tristate output

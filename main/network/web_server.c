@@ -84,6 +84,10 @@ extern void read_capture_status(void);
 #define DEFAULT_SAMPLE_RATE_HZ  264000000
 uint32_t gbl_sample_rate = DEFAULT_SAMPLE_RATE_HZ;
 uint8_t gbl_sample_rate_reg = 255;
+
+/* SRESET configuration (applied by /api/sreset_config, used by reset_target_handler) */
+uint8_t  gbl_sreset_polarity  = 0;    /* 0 = active HIGH, 1 = active LOW */
+uint32_t gbl_sreset_pulse_ms  = 100;  /* pulse width in ms */
 bool gbl_trigger_enabled = true;
 bool gbl_trigger_mode_or = true;
 bool gbl_capture_internal_test_signal = false;
@@ -1736,6 +1740,44 @@ static esp_err_t portd_output_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t sreset_config_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+    char json_buf[128];
+    cJSON *root = set_handler_start(req, json_buf, sizeof(json_buf));
+    if (!root) return ESP_FAIL;
+
+    cJSON *polarity = cJSON_GetObjectItem(root, "polarity");
+    cJSON *pulse_ms = cJSON_GetObjectItem(root, "pulse_ms");
+
+    if (polarity && cJSON_IsNumber(polarity)) {
+        gbl_sreset_polarity = (polarity->valueint != 0) ? 1 : 0;
+    }
+    if (pulse_ms && cJSON_IsNumber(pulse_ms)) {
+        int ms = pulse_ms->valueint;
+        if (ms >= 1 && ms <= 5000) {
+            gbl_sreset_pulse_ms = (uint32_t)ms;
+        } else {
+            cJSON_Delete(root);
+            httpd_resp_set_status(req, "400 Bad Request");
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_sendstr(req, "{\"status\":\"error\",\"message\":\"pulse_ms must be 1–5000\"}");
+            return ESP_OK;
+        }
+    }
+    cJSON_Delete(root);
+
+    ESP_LOGI(TAG, "sreset_config: polarity=%d pulse_ms=%lu",
+             gbl_sreset_polarity, (unsigned long)gbl_sreset_pulse_ms);
+
+    char resp[64];
+    snprintf(resp, sizeof(resp),
+             "{\"status\":\"ok\",\"polarity\":%d,\"pulse_ms\":%lu}",
+             gbl_sreset_polarity, (unsigned long)gbl_sreset_pulse_ms);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, resp);
+    return ESP_OK;
+}
+
 static esp_err_t reset_target_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -1753,13 +1795,22 @@ static esp_err_t reset_target_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    /* Pulse SRESET: assert → 100 ms → deassert */
-    set_sreset(true);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    set_sreset(false);
+    /* Pulse SRESET using configured polarity and pulse width.
+     * Positive (active HIGH): assert=true  → HIGH for pulse_ms → LOW
+     * Negative (active LOW):  assert=false → LOW  for pulse_ms → HIGH
+     *   (set_sreset idle state is LOW; for active-LOW we invert) */
+    bool assert_val = (gbl_sreset_polarity == 0);   /* positive: assert=true */
+    set_sreset(assert_val);
+    vTaskDelay(pdMS_TO_TICKS(gbl_sreset_pulse_ms));
+    set_sreset(!assert_val);
+
+    char msg[64];
+    snprintf(msg, sizeof(msg), "Reset pulse sent (%lu ms, %s)",
+             (unsigned long)gbl_sreset_pulse_ms,
+             gbl_sreset_polarity ? "active LOW" : "active HIGH");
 
     cJSON_AddStringToObject(root, "status",  "ok");
-    cJSON_AddStringToObject(root, "message", "Reset pulse sent (100 ms)");
+    cJSON_AddStringToObject(root, "message", msg);
     char *js = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     httpd_resp_set_type(req, "application/json");
@@ -1988,6 +2039,13 @@ httpd_uri_t uri_reset_target = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_sreset_config = {
+    .uri      = "/api/sreset_config",
+    .method   = HTTP_POST,
+    .handler  = sreset_config_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_portd_output = {
     .uri      = "/api/portd_output",
     .method   = HTTP_POST,
@@ -2163,6 +2221,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
     httpd_register_uri_handler(*http_handle, &uri_version);
     httpd_register_uri_handler(*http_handle, &uri_reset_target);
+    httpd_register_uri_handler(*http_handle, &uri_sreset_config);
     httpd_register_uri_handler(*http_handle, &uri_portd_output);
     httpd_register_uri_handler(*http_handle, &uri_portd_freq);
 
