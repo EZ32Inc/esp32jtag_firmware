@@ -86,7 +86,7 @@ uint32_t gbl_sample_rate = DEFAULT_SAMPLE_RATE_HZ;
 uint8_t gbl_sample_rate_reg = 255;
 
 /* SRESET configuration (applied by /api/sreset_config, used by reset_target_handler) */
-uint8_t  gbl_sreset_polarity  = 0;    /* 0 = active HIGH, 1 = active LOW */
+uint8_t  gbl_sreset_polarity  = 1;    /* 0 = active HIGH, 1 = active LOW (default) */
 uint32_t gbl_sreset_pulse_ms  = 100;  /* pulse width in ms */
 bool gbl_trigger_enabled = true;
 bool gbl_trigger_mode_or = true;
