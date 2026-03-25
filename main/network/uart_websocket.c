@@ -347,20 +347,9 @@ void uart_write_task(void *pvParameters) {
     char *message;
     for(;;) {
         if (xQueueReceive(s_uart_queue, &message, portMAX_DELAY) == pdPASS) {
-            // Check for control commands
-            if (strncmp(message, "LOG_ON", 6) == 0) {
-                 g_log_monitor_enabled = true;
-                 ESP_LOGI(TAG, "Log Monitor ENABLED");
-                 free(message);
-                 continue;
-            }
-            if (strncmp(message, "LOG_OFF", 7) == 0) {
-                 g_log_monitor_enabled = false;
-                 ESP_LOGI(TAG, "Log Monitor DISABLED");
-                 free(message);
-                 continue;
-            }
-
+            /* LOG_ON / LOG_OFF are now handled directly in websocket_handler
+             * before they reach this queue.  Any message arriving here is
+             * plain UART data to be forwarded to the target. */
             ESP_LOGI(TAG, "Input to send: %s", message);
             
             // Write to UART

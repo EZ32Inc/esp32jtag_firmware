@@ -1206,71 +1206,74 @@
       const disconnectButton = document.getElementById('disconnect-button');
       var g_log_monitor_mode = false;
 
+      /* Append HTML to the terminal and auto-scroll. All paths use this so
+         innerHTML stays consistent and textContent never strips formatting. */
+      function termAppend(html) {
+        terminalDisplay.innerHTML += html;
+        terminalDisplay.scrollTop = terminalDisplay.scrollHeight;
+      }
+
+      function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
       function connect() {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          terminalDisplay.textContent += "Already connected. Switching to UART mode.\n";
-          // Enforce UART mode as requested: uncheck log monitor and disable logs
-          document.getElementById('esp32-log-monitor').checked = false;
-          ws.send("LOG_OFF");
+        /* Ignore if already connected or still connecting. The buttons are
+           disabled while active, so this is a safety guard only. */
+        if (ws && (ws.readyState === WebSocket.OPEN ||
+                   ws.readyState === WebSocket.CONNECTING)) {
           return;
         }
 
-        // Ensure log monitor is unchecked on new connection ONLY if it wasn't the trigger
-        // Actually, we want to respect the checkbox. If it's already checked (by user action), let's keep it.
-        // document.getElementById('esp32-log-monitor').checked = false;
-
-        terminalDisplay.textContent = "Connecting...\n";
+        terminalDisplay.innerHTML = '<span style="color:#aaa">Connecting…</span>\n';
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
         ws.onopen = () => {
-          terminalDisplay.textContent = "Connected.\n";
+          termAppend('<span style="color:#aaa">Connected.</span>\n');
           terminalInput.disabled = false;
           terminalInput.placeholder = "Type here...";
-          connectButton.disabled = false; // Allow clicking again to reset mode
-          // connectButton.textContent = "Switch to UART"; // Optional enhancement?
           disconnectButton.disabled = false;
+          /* Connect buttons stay disabled while session is open.
+             They are re-enabled in ws.onclose. */
           terminalInput.focus();
 
-          // Check if Log Monitor is requested
           if (g_log_monitor_mode) {
-            // Add a small delay to ensure the server is ready and stream buffer is cleared
+            /* Small delay so server has flushed the stream buffer reset
+               before we start receiving logs. */
             setTimeout(() => {
               if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send("LOG_ON");
-                terminalDisplay.innerHTML += '<span style="color:cyan">ESP32 Log Monitor Enabled</span>\n';
+                termAppend('<span style="color:cyan">ESP32 Log Monitor Enabled</span>\n');
                 terminalInput.disabled = true;
               }
             }, 50);
           } else {
-            ws.send("LOG_OFF"); // Ensure logs are off by default
-            terminalInput.disabled = false;
+            ws.send("LOG_OFF");
           }
         };
 
         ws.onmessage = (event) => {
-          terminalDisplay.innerHTML += ansiToHtml(event.data);
-          terminalDisplay.scrollTop = terminalDisplay.scrollHeight;
+          termAppend(ansiToHtml(event.data));
         };
 
         ws.onclose = () => {
-          terminalDisplay.textContent += "\nDisconnected.\n";
+          termAppend('<span style="color:#aaa">Disconnected.</span>\n');
           terminalInput.disabled = true;
+          terminalInput.placeholder = "Press connect to continue...";
           connectButton.disabled = false;
           connectLogButton.disabled = false;
           disconnectButton.disabled = true;
-          terminalInput.placeholder = "Press connect to continue...";
         };
 
-        ws.onerror = (error) => {
-          terminalDisplay.textContent += `WebSocket Error: ${error}\n`;
+        ws.onerror = () => {
+          termAppend('<span style="color:#f66">Connection failed. Ensure the device is reachable and you have accepted the HTTPS certificate in your browser.</span>\n');
         };
       }
 
       function disconnect() {
         if (ws) {
           ws.close();
-          terminalInput.placeholder = "Press connect to continue...";
         }
       }
 
@@ -1278,40 +1281,26 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(char);
         } else {
-          terminalDisplay.innerHTML += '<span style="color:red">Not connected. Please click Connect first.</span>\n';
-          terminalDisplay.scrollTop = terminalDisplay.scrollHeight;
+          termAppend('<span style="color:red">Not connected. Please click Connect first.</span>\n');
         }
       }
 
-
-
       function ansiToHtml(text) {
-        // Basic ANSI to HTML converter
-        // Handles:
-        // - Colors: 30-37 (foreground), 90-97 (bright foreground)
-        // - Styles: 1 (Bold), 0 (Reset)
-
-        // Escape HTML entities to prevent XSS and rendering issues from content
-        text = text.replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+        // Escape HTML entities first to prevent XSS
+        text = escapeHtml(text);
 
         const colors = {
           30: 'black', 31: 'red', 32: 'green', 33: 'yellow', 34: 'blue', 35: 'magenta', 36: 'cyan', 37: 'white',
           90: 'gray', 91: 'lightcoral', 92: 'lightgreen', 93: 'lightyellow', 94: 'lightblue', 95: 'lightmagenta', 96: 'lightcyan', 97: 'white'
         };
 
-        // This regex looks for \x1b[ ... m
-        // Updated to handle empty sequence \x1b[m which is equivalent to \x1b[0m
         return text.replace(/\x1b\[([\d;]*)m/g, function (match, codes) {
           let style = "";
-          if (codes === "") {
-            codes = "0";
-          }
-          let codeArray = codes.split(';');
+          if (codes === "") codes = "0";
+          const codeArray = codes.split(';');
 
           for (let code of codeArray) {
-            let c = parseInt(code);
+            const c = parseInt(code);
             if (c === 0) {
               return "</span>";
             } else if (c === 1) {
@@ -1321,71 +1310,36 @@
             }
           }
 
-          if (style) {
-            return `<span style="${style}">`;
-          }
-          return "";
+          return style ? `<span style="${style}">` : "";
         });
       }
 
       connectButton.addEventListener('click', function () {
-        // Check Port B configuration first
         var pbConfig = document.getElementById("pbcfg").value;
         if (pbConfig != "1") {
-          alert("Please power off and connect Port B UART to device UART, then power on and set Port B Configuration to \"Vtarget + UART + SReset\" in System Configurations page, then go to this page and click Connect UART.");
+          alert("Port B must be set to \"Vtarget + UART + SReset\" in System Configurations before using the UART terminal.");
           return;
         }
-
-        // Validation:
-        // 1. UART Connection must be "1" (Web Terminal)
-        // 2. USB Bridged UART Logging must be Disabled (false)
-
-        var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
-        var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
-
-        if (usbLogging === true || g_last_usb_logging === true) {
-          alert("Need to disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
-          return;
-        }
-
         g_log_monitor_mode = false;
-        connect();
         connectButton.disabled = true;
         connectLogButton.disabled = true;
+        connect();
       });
 
       connectLogButton.addEventListener('click', function () {
-        // Validation:
-        // 1. UART Connection must be "1" (Web Terminal)
-        // 2. USB Bridged UART Logging must be Disabled (false)
-
-        var usbLoggingObj = document.getElementById("usb-bridged-uart-logging");
-        var usbLogging = usbLoggingObj ? usbLoggingObj.checked : false;
-
-        if (usbLogging === true || g_last_usb_logging === true) {
-          alert("Need to disable 'Enable USB bridged UART Logging' in System Configuration to use this feature");
-          return;
-        }
-
         g_log_monitor_mode = true;
-        connect();
         connectButton.disabled = true;
         connectLogButton.disabled = true;
+        connect();
       });
 
       disconnectButton.addEventListener('click', disconnect);
 
-
-
       terminalInput.addEventListener('keydown', (event) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-          // Allow typing if not connected? Or warn?
-          // For now, warn if they try to type functionality
           if (event.key.length === 1 || event.key === 'Enter') {
-            sendChar(''); // Trigger warning
+            sendChar('');
           }
-          // Don't prevent default, allow them to see they are typing into void? 
-          // Or prevent to be strict. Let's act strict.
           event.preventDefault();
           return;
         }
@@ -1397,26 +1351,18 @@
           charToSend = '\x08';
         } else if (event.key === 'Tab') {
           charToSend = '\t';
-          event.preventDefault(); // Prevent focus switch
-        } else if (event.key.length === 1) { // Normal char
+          event.preventDefault();
+        } else if (event.key.length === 1) {
           charToSend = event.key;
         }
 
         if (charToSend !== null) {
           ws.send(charToSend);
-
-          // Logic for local display (Input Box):
           if (event.key === 'Enter') {
-            // Clear input on Enter to simulate "sending" a command line
             terminalInput.value = '';
             event.preventDefault();
           } else if (event.key === 'Tab') {
-            // Prevent tab focus switch
             event.preventDefault();
-          } else {
-            // For normal chars and Backspace, ALLOW default behavior
-            // so they appear/disappear in the input box.
-            // NO event.preventDefault();
           }
         }
       });
