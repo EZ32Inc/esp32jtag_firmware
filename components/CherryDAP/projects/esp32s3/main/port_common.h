@@ -59,7 +59,7 @@ static inline uint32_t dap_get_time_stamp(void)
 {
     return (uint32_t)xTaskGetTickCount();
 }
-#define CHERRY_GPIO_OUTPUT_PIN_SEL  ((1ULL<<SWDIO_RDnWR_PIN) | (1ULL<< PIN_SWCLK_TCK) | (1ULL<<PIN_SWDIO_TMS) | \
+#define CHERRY_GPIO_OUTPUT_PIN_SEL  (((AEL_BMP_HAS_SWDIO_RDNWR ? (1ULL << SWDIO_RDnWR_PIN) : 0ULL)) | (1ULL<< PIN_SWCLK_TCK) | (1ULL<<PIN_SWDIO_TMS) | \
         (1ULL<<PIN_TDI) | (1ULL<<PIN_TDI) | (1ULL<<PIN_TDO) )
 //#define GPIO_OUTPUT_PIN_SEL  (BIT(SWDIO_RDnWR_PIN) | BIT(SWCLK_PIN) | BIT(SWDIO_PIN) | BIT(TMS_PIN) | BIT(TDI_PIN) | BIT(TDO_PIN) | BIT(TCK_PIN))
 
@@ -81,8 +81,10 @@ static inline void pins_init_cherry() {
     //configure GPIO with the given settings
     gpio_config(&io_conf);
 
-    //set SWDIO_RDnWR_PIN
-    gpio_set_direction(SWDIO_RDnWR_PIN, GPIO_MODE_OUTPUT);
+    //set SWDIO_RDnWR_PIN when present
+    if (AEL_BMP_HAS_SWDIO_RDNWR) {
+        gpio_set_direction(SWDIO_RDnWR_PIN, GPIO_MODE_OUTPUT);
+    }
 
     //SWDIO_MODE_DRIVE();
 
