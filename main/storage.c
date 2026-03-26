@@ -82,22 +82,22 @@ esp_err_t storage_init_nvs(void) {
 
     // --- Port Configurations ---
     if (!storage_is_key_exist(PORT_A_CFG_KEY)) {
-        const char *pa_cfg_val = "0"; // PA_LOGICANALYZER is 0
+        char pa_cfg_val[4]; snprintf(pa_cfg_val, sizeof(pa_cfg_val), "%d", DEFAULT_PA_CFG);
         nvs_set_blob(handle, PORT_A_CFG_KEY, pa_cfg_val, strlen(pa_cfg_val) + 1);
     }
     
     if (!storage_is_key_exist(PORT_B_CFG_KEY)) {
-        const char *pb_cfg_val = "0"; // PB_LOGICANALYZER is 0
+        char pb_cfg_val[4]; snprintf(pb_cfg_val, sizeof(pb_cfg_val), "%d", DEFAULT_PB_CFG);
         nvs_set_blob(handle, PORT_B_CFG_KEY, pb_cfg_val, strlen(pb_cfg_val) + 1);
     }
 
     if (!storage_is_key_exist(PORT_C_CFG_KEY)) {
-        const char *pc_cfg_val = "0"; // PC_LOGICANALYZER is 0
+        char pc_cfg_val[4]; snprintf(pc_cfg_val, sizeof(pc_cfg_val), "%d", DEFAULT_PC_CFG);
         nvs_set_blob(handle, PORT_C_CFG_KEY, pc_cfg_val, strlen(pc_cfg_val) + 1);
     }
 
     if (!storage_is_key_exist(PORT_D_CFG_KEY)) {
-        const char *pd_cfg_val = "0"; // PD_LOGICANALYZER is 0
+        char pd_cfg_val[4]; snprintf(pd_cfg_val, sizeof(pd_cfg_val), "%d", DEFAULT_PD_CFG);
         nvs_set_blob(handle, PORT_D_CFG_KEY, pd_cfg_val, strlen(pd_cfg_val) + 1);
     }
 
