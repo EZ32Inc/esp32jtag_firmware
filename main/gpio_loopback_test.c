@@ -276,3 +276,65 @@ void gpio_targetin_detect_run_json(char *out_json, size_t out_json_size)
              transitions,
              estimated_hz);
 }
+
+void gpio_uart_rxd_detect_run_json(char *out_json, size_t out_json_size)
+{
+    if (!out_json || out_json_size == 0U) {
+        return;
+    }
+
+    if (!AEL_GPIO_TEST_SUPPORTED || !GPIO_IS_VALID_GPIO(AEL_GPIO_UART_RXD)) {
+        snprintf(out_json, out_json_size,
+                 "{\"test\":\"test_uart_rxd_detect\",\"result\":\"unsupported\",\"details\":\"board profile does not define a valid UART RX GPIO\"}");
+        return;
+    }
+
+    gpio_config_t in_conf = {
+        .pin_bit_mask = (1ULL << AEL_GPIO_UART_RXD),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    esp_err_t err = gpio_config(&in_conf);
+    if (err != ESP_OK) {
+        snprintf(out_json, out_json_size,
+                 "{\"test\":\"test_uart_rxd_detect\",\"result\":\"error\",\"details\":\"UART RX GPIO configuration failed: %s\"}",
+                 esp_err_to_name(err));
+        return;
+    }
+
+    uint32_t samples = 0, high = 0, low = 0, transitions = 0, estimated_hz = 0;
+    const char *state = "unknown";
+    const int64_t start_us = esp_timer_get_time();
+    const int64_t end_us = start_us + 250000LL;
+    int prev = gpio_get_level(AEL_GPIO_UART_RXD);
+    while (esp_timer_get_time() < end_us) {
+        int level = gpio_get_level(AEL_GPIO_UART_RXD);
+        if (level) high++; else low++;
+        if (samples > 0 && level != prev) transitions++;
+        prev = level;
+        samples++;
+        esp_rom_delay_us(25);
+    }
+    const int64_t actual_us = esp_timer_get_time() - start_us;
+    if (actual_us > 0 && transitions > 0) {
+        estimated_hz = (uint32_t)(((uint64_t)transitions * 1000000ULL) / (2ULL * (uint64_t)actual_us));
+    }
+    if (transitions >= 4U) state = "toggle";
+    else if (high == samples && samples > 0) state = "high";
+    else if (low == samples && samples > 0) state = "low";
+    else state = "unstable";
+
+    const char *result = (transitions >= 4U) ? "pass" : "fail";
+    snprintf(out_json, out_json_size,
+             "{\"test\":\"test_uart_rxd_detect\",\"result\":\"%s\",\"pin\":%d,\"state\":\"%s\",\"samples\":%" PRIu32 ",\"high\":%" PRIu32 ",\"low\":%" PRIu32 ",\"transitions\":%" PRIu32 ",\"estimated_hz\":%" PRIu32 "}",
+             result,
+             (int)AEL_GPIO_UART_RXD,
+             state,
+             samples,
+             high,
+             low,
+             transitions,
+             estimated_hz);
+}
