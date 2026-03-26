@@ -1,16 +1,17 @@
-
 #pragma once
+
 #include "esp_err.h"
+#include "boards/board_profile.h"
 
 #ifndef SPI_HOST_USED
 #define SPI_HOST_USED SPI3_HOST  // SPI3_HOST for LCD and LA SPI controller
 #endif
 
-#define ESP32JTAG_BOARD 1
+#define ESP32JTAG_BOARD AEL_BOARD_IS_ESP32JTAG
 
-#define UART_PORT_NUM UART_NUM_1
-#define GPIO_UART_TXD (43)
-#define GPIO_UART_RXD (44)
+#define UART_PORT_NUM AEL_UART_PORT_NUM
+#define GPIO_UART_TXD (AEL_GPIO_UART_TXD)
+#define GPIO_UART_RXD (AEL_GPIO_UART_RXD)
 
 //GPIOs connected to FPGA
 #define GPIO_04  (4)
@@ -32,26 +33,26 @@
 #define GPIO_47  (47)
 
 #ifndef SWDIO_RDnWR_PIN
-#define SWDIO_RDnWR_PIN (45)
+#define SWDIO_RDnWR_PIN (AEL_BMP_SWDIO_RDNWR_PIN)
 #endif
 
 #ifndef SWDIO_PIN
-#define SWDIO_PIN (41)
+#define SWDIO_PIN (AEL_BMP_SWDIO_PIN)
 #endif
 
 #ifndef PIN_NUM_CS1
-#define PIN_NUM_CS1   (GPIO_NUM_13)
+#define PIN_NUM_CS1   (AEL_PIN_NUM_CS1)
 #endif
 
-#define PIN_NUM_CS0   (GPIO_NUM_21)
-#define PIN_NUM_CS2   (GPIO_NUM_11)
-#define PIN_NUM_CS3   (GPIO_NUM_5)
-#define PIN_NUM_CLK   (GPIO_NUM_38)
-#define PIN_NUM_MOSI  (GPIO_NUM_14)
-#define PIN_NUM_MISO  (GPIO_NUM_39)
+#define PIN_NUM_CS0   (AEL_PIN_NUM_CS0)
+#define PIN_NUM_CS2   (AEL_PIN_NUM_CS2)
+#define PIN_NUM_CS3   (AEL_PIN_NUM_CS3)
+#define PIN_NUM_CLK   (AEL_PIN_NUM_CLK)
+#define PIN_NUM_MOSI  (AEL_PIN_NUM_MOSI)
+#define PIN_NUM_MISO  (AEL_PIN_NUM_MISO)
 
-#define PIN_PUSHBUTTON_BOOT_SW1 (0) //(GPIO_NUM_0)
-#define PIN_PUSHBUTTON_SW2      (48) //(GPIO_NUM_48)
+#define PIN_PUSHBUTTON_BOOT_SW1 (AEL_BUTTON_BOOT_PIN)
+#define PIN_PUSHBUTTON_SW2      (AEL_BUTTON_SECONDARY_PIN)
 
 //from /nvme1t/work/esp32jtag_v1d3_ice4kup/la_src/top.v
 // assign {cfgpc, SWD_GPIO, LA_input_sel, cfgpd, cfgpb, cfgpa, njtag_swdio, sreset} = data_reg_0[7:0];

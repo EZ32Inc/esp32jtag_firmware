@@ -1,5 +1,56 @@
 menu "OpenOCD-on-ESP32 Configuration"
 
+    choice AEL_BOARD_SELECTION
+        prompt "AEL board profile"
+        default AEL_BOARD_ESP32JTAG_S3
+        help
+            Select the physical board profile that this firmware image targets.
+            The MCU family may be the same while available peripherals and pin
+            mapping differ across board products.
+
+        config AEL_BOARD_ESP32JTAG_S3
+            bool "ESP32JTAG (ESP32-S3)"
+
+        config AEL_BOARD_ESP32S3_DEVKIT
+            bool "Generic ESP32-S3 DevKit"
+    endchoice
+
+    config AEL_BOARD_NAME
+        string
+        default "esp32jtag_s3" if AEL_BOARD_ESP32JTAG_S3
+        default "esp32s3_devkit" if AEL_BOARD_ESP32S3_DEVKIT
+        default "esp32jtag_s3"
+
+    config AEL_BOARD_HAS_FPGA
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
+    config AEL_BOARD_HAS_LCD
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
+    config AEL_BOARD_HAS_TARGET_VIO_PWM
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
+    config AEL_BOARD_HAS_LOGIC_ANALYZER
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
+    config AEL_BOARD_HAS_XVC
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
+    config AEL_BOARD_HAS_SECONDARY_BUTTON
+        bool
+        default y if AEL_BOARD_ESP32JTAG_S3
+        default n
+
     choice OPENOCD_CHOOSE_TARGET_CONFIG
         prompt "OpenOCD target file"
         default OPENOCD_TARGET_ESP32

@@ -32,6 +32,7 @@
 #include "../components/lcd/lcd_library.h"
 #include "GUI_Paint.h"
 #include "gdb_main.h"
+#include "boards/board_profile.h"
 #include "port_cfg.h"
 #include "xvc_server.h"
 #include "esp32jtag_common.h"
@@ -97,6 +98,7 @@ uint8_t *gbl_spi_rxbuf = NULL;
 #endif
 
 static const char *TAG = "MAIN";
+static const ael_board_profile_t *g_board = NULL;
 
 
 //configurations for each ESP32JTAG 4 ports
@@ -154,10 +156,19 @@ esp_err_t gpio_out_init(gpio_num_t gpio_num, uint32_t init_level)
 
 static void init_gpio_sw1_sw2(void)
 {
-    ESP_LOGI(TAG, "Init GPIO0 and GPIO48 as input"); //, PIN_PUSHBUTTON_BOOT_SW1, PIN_PUSHBUTTON_SW2);
+    const uint64_t pin_mask =
+        ael_gpio_mask_if_valid(PIN_PUSHBUTTON_BOOT_SW1) |
+        ael_gpio_mask_if_valid(PIN_PUSHBUTTON_SW2);
+
+    if (pin_mask == 0) {
+        ESP_LOGI(TAG, "No board buttons configured");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Init board buttons as input");
     gpio_config_t io_conf = {
         .mode = GPIO_MODE_INPUT,
-        .pin_bit_mask = (1ULL << PIN_PUSHBUTTON_BOOT_SW1) | (1ULL << PIN_PUSHBUTTON_SW2) ,
+        .pin_bit_mask = pin_mask,
         .pull_down_en = 0,
         .pull_up_en = 0,
         .intr_type = GPIO_INTR_DISABLE
@@ -165,8 +176,13 @@ static void init_gpio_sw1_sw2(void)
     gpio_config(&io_conf);
 }
 
-static esp_err_t load_fpga(void)
+esp_err_t load_fpga(void)
 {
+    if (!g_board->has_fpga) {
+        ESP_LOGW(TAG, "FPGA load requested on board '%s' without FPGA support", g_board->name);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
     extern const unsigned char bitstream_bin_start[] asm("_binary_bitstream_bin_start");
     extern const unsigned char bitstream_bin_end[]   asm("_binary_bitstream_bin_end");
     const size_t sz = (bitstream_bin_end - bitstream_bin_start);
@@ -190,22 +206,28 @@ static esp_err_t load_fpga(void)
 #define SPI_CLK_MHZ             (20*1000*1000)
 #define INITIAL_VIO_DUTY        8   /* 8/1024 → ~3.30V output */
 
+#if AEL_BOARD_HAS_TARGET_VIO_PWM
 /* PWM duty values for Target IO Voltage UI options (index matches HTML option value):
- *   0 = 3.3V → duty   8
- *   1 = 2.5V → duty 123
- *   2 = 1.8V → duty 228
- *   3 = 1.5V → duty 271
- *   4 = 1.2V → duty 318
+ *   0 = 3.3V -> duty   8
+ *   1 = 2.5V -> duty 123
+ *   2 = 1.8V -> duty 228
+ *   3 = 1.5V -> duty 271
+ *   4 = 1.2V -> duty 318
  * Derived from empirical measurements on ESP32JTAG v1.3/v1.4 hardware.
  * Default (fresh flash / factory reset) is index 0 = 3.3V. */
 static const uint16_t vio_duty_table[] = { 8, 123, 228, 271, 318 };
 #define VIO_DUTY_TABLE_SIZE  (sizeof(vio_duty_table) / sizeof(vio_duty_table[0]))
+#endif
 
 static spi_device_handle_t spi_device_1_manual_handle;
 static spi_device_handle_t spi_device_2_hw_handle;
 static spi_device_handle_t spi_device_3_hw_handle;
 static spi_device_handle_t spi_device_4_hw_handle;
 esp_err_t spi_master_init(void){
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "SPI/FPGA fabric init skipped for board '%s'", g_board->name);
+        return ESP_OK;
+    }
     ESP_LOGI(TAG, "Doing spi_master_init()");
 
 
@@ -301,11 +323,13 @@ esp_err_t spi_master_init(void){
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << PIN_NUM_CS0);
+    io_conf.pin_bit_mask = ael_gpio_mask_if_valid(PIN_NUM_CS0);
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
-    gpio_config(&io_conf);
-    gpio_set_level(PIN_NUM_CS0, 1); //Assert CS by default
+    if (io_conf.pin_bit_mask != 0) {
+        gpio_config(&io_conf);
+        gpio_set_level(PIN_NUM_CS0, 1); //Assert CS by default
+    }
 
     ESP_LOGI(TAG, "spi_master_init() done, gbl_spi_h1 is %s.", gbl_spi_h1==NULL? "NULL":"Not NULL"); 
     return ret;
@@ -416,10 +440,10 @@ static void load_nvs_uint8(const char *key, uint8_t *out, uint8_t default_val)
 
 static void load_port_configurations(void)
 {
-    load_nvs_uint8(PORT_A_CFG_KEY, &gbl_pa_cfg, PA_LOGICANALYZER);
-    load_nvs_uint8(PORT_B_CFG_KEY, &gbl_pb_cfg, PB_LOGICANALYZER);
-    load_nvs_uint8(PORT_C_CFG_KEY, &gbl_pc_cfg, PC_LOGICANALYZER);
-    load_nvs_uint8(PORT_D_CFG_KEY, &gbl_pd_cfg, PD_LOGICANALYZER);
+    load_nvs_uint8(PORT_A_CFG_KEY, &gbl_pa_cfg, DEFAULT_PA_CFG);
+    load_nvs_uint8(PORT_B_CFG_KEY, &gbl_pb_cfg, DEFAULT_PB_CFG);
+    load_nvs_uint8(PORT_C_CFG_KEY, &gbl_pc_cfg, DEFAULT_PC_CFG);
+    load_nvs_uint8(PORT_D_CFG_KEY, &gbl_pd_cfg, DEFAULT_PD_CFG);
 
     // uart_port_sel is 'char', handled separately
     char *val = NULL;
@@ -673,34 +697,40 @@ static void AD_CH1_init(void)
     }
 }
 
-#if ESP32JTAG_BOARD
-static void setup_pwm1()
+static void setup_pwm1(void)
 {
+    if (!g_board || !g_board->has_target_vio_pwm) {
+        return;
+    }
+
     ledc_timer_config_t ledc_timer1 = {
-        .speed_mode       = LEDC_LOW_SPEED_MODE,
-        .timer_num        = LEDC_TIMER_1,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .timer_num = LEDC_TIMER_1,
         //.duty_resolution  = LEDC_TIMER_13_BIT,      // Resolution of PWM duty (2^13 = 8192 levels)
-        .duty_resolution  = LEDC_TIMER_10_BIT,      // Resolution of PWM duty (2^10 = 1024 levels)
-        .freq_hz          = 5000,                   // Frequency in Hertz
-        .clk_cfg          = LEDC_AUTO_CLK
+        .duty_resolution = LEDC_TIMER_10_BIT,      // Resolution of PWM duty (2^10 = 1024 levels)
+        .freq_hz = 5000,                   // Frequency in Hertz
+        .clk_cfg = LEDC_AUTO_CLK
     };
     ledc_timer_config(&ledc_timer1);
 
     ledc_channel_config_t ledc_channel1 = {
-        .speed_mode     = LEDC_LOW_SPEED_MODE,
-        .channel        = LEDC_CHANNEL_1,
-        .timer_sel      = LEDC_TIMER_1,
-        .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = 16,                       // GPIO where PWM is output
-        .duty           = 0,                        // Initial duty cycle (0%)
-        .hpoint         = 0
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_1,
+        .timer_sel = LEDC_TIMER_1,
+        .intr_type = LEDC_INTR_DISABLE,
+        .gpio_num = 16,                       // GPIO where PWM is output
+        .duty = 0,                        // Initial duty cycle (0%)
+        .hpoint = 0
     };
     ledc_channel_config(&ledc_channel1);
-
 }
-#endif
 
-static void set_pwm1_duty(uint16_t duty) {
+static void set_pwm1_duty(uint16_t duty)
+{
+    if (!g_board || !g_board->has_target_vio_pwm) {
+        return;
+    }
+
     // Set brightness
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
@@ -772,6 +802,10 @@ static void print_sta_info(void)
     }
 }
 esp_err_t set_cfga(bool use_porta, bool use_portb, bool use_portc, bool use_portd, bool njtag_swdio, bool swd_gpio){
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "set_cfga skipped on board '%s'", g_board->name);
+        return ESP_OK;
+    }
     esp_err_t ret1 = 0;
     uint8_t tx[3]={0x0,0,0};
     uint8_t rx[3]={0};
@@ -815,6 +849,11 @@ esp_err_t set_cfga(bool use_porta, bool use_portb, bool use_portc, bool use_port
 }
 esp_err_t set_la_input_sel(bool use_test_signal)
 {
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "set_la_input_sel skipped on board '%s'", g_board->name);
+        return ESP_OK;
+    }
+
     esp_err_t ret1 = 0;
     uint8_t tx[3]={0x0,0,0};
     uint8_t rx[3]={0};
@@ -836,6 +875,11 @@ esp_err_t set_la_input_sel(bool use_test_signal)
  * to physically appear on the connector. */
 esp_err_t set_sreset(bool assert_reset)
 {
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "set_sreset skipped on board '%s'", g_board->name);
+        return ESP_OK;
+    }
+
     esp_err_t ret1 = 0;
     uint8_t tx[3]={0x0,0,0};
     uint8_t rx[3]={0};
@@ -862,6 +906,11 @@ esp_err_t set_sreset(bool assert_reset)
  */
 esp_err_t set_portd_output(uint8_t mode, uint8_t value)
 {
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "set_portd_output skipped on board '%s'", g_board->name);
+        return ESP_OK;
+    }
+
     esp_err_t ret;
     uint8_t tx[3] = {0, 0, 0};
     uint8_t rx[3] = {0};
@@ -896,6 +945,11 @@ static void portd_toggle_cb(void *arg)
 
 esp_err_t set_portd_freq(uint32_t freq_hz)
 {
+    if (!g_board->has_fpga) {
+        ESP_LOGI(TAG, "set_portd_freq skipped on board '%s'", g_board->name);
+        return ESP_OK;
+    }
+
     if (s_portd_toggle_timer) {
         esp_timer_stop(s_portd_toggle_timer);
         esp_timer_delete(s_portd_toggle_timer);
@@ -923,13 +977,13 @@ void check_sw1_sw2(void)
     static uint8_t L0 = 0, L48 = 0;    /* Previous GPIO levels, persist across calls */
 
     // Read the level of GPIO0
-    int level_0 = gpio_get_level(PIN_PUSHBUTTON_BOOT_SW1);
+    int level_0 = ael_board_has_valid_gpio(PIN_PUSHBUTTON_BOOT_SW1) ? gpio_get_level(PIN_PUSHBUTTON_BOOT_SW1) : 0;
 
     // Read the level of GPIO48
-    int level_48 = gpio_get_level(PIN_PUSHBUTTON_SW2);
+    int level_48 = ael_board_has_valid_gpio(PIN_PUSHBUTTON_SW2) ? gpio_get_level(PIN_PUSHBUTTON_SW2) : 0;
 
     if(L0 != level_0 || L48 != level_48){
-        if(L48 != level_48 && level_48 == 1){
+        if(g_board->has_secondary_button && L48 != level_48 && level_48 == 1){
             gbl_sw2_gpio48_flag = !gbl_sw2_gpio48_flag;
         }
         ESP_LOGI(TAG, "GPIO%d Level: %d | GPIO%d Level: %d gbl_sw2_gpio48_flag=%s",
@@ -997,9 +1051,11 @@ static void start_background_tasks(void)
         }
     }
 
-    logic_analyzer_init();
+    if (g_board->has_logic_analyzer) {
+        logic_analyzer_init();
+    }
 
-    if (gbl_pd_cfg == PD_FPGA_XVC) {
+    if (g_board->has_xvc && gbl_pd_cfg == PD_FPGA_XVC) {
         ESP_LOGI(TAG, "To do xTaskCreate(xvc_server_task)");
         xTaskCreate(xvc_server_task, "xvc_server_task", 4096, NULL, 5, NULL);
     }
@@ -1009,8 +1065,10 @@ void app_main(void) {
 
     global_data_reg_0 = 0;
     global_data_reg_1 = 0; // set PC and PD as input
+    g_board = ael_board_profile_get();
 
     esp_log_level_set(TAG, ESP_LOG_INFO);
+    ESP_LOGI(TAG, "Board profile: %s", g_board->name);
     init_idf_components();
 
     gbl_spi_rxbuf = heap_caps_malloc(2048, MALLOC_CAP_DMA);
@@ -1047,14 +1105,20 @@ void app_main(void) {
     load_port_configurations();
 
     //LCD related starts here ****
-    lcd_init();
-    lcd_clear(); //clear screen
-    Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, BLACK);
+    if (g_board->has_lcd) {
+        lcd_init();
+        lcd_clear(); //clear screen
+        Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, BLACK);
+    }
 
-    ICE_Init();
-    load_fpga();
+    if (g_board->has_fpga) {
+        ICE_Init();
+        load_fpga();
+    }
 
-    draw_wifi_startup_info();
+    if (g_board->has_lcd) {
+        draw_wifi_startup_info();
+    }
 
     if (g_app_params.mode == APP_MODE_AP) {
     } else {
@@ -1110,14 +1174,16 @@ void app_main(void) {
     network_get_my_ip(g_app_params.my_ip);
 
     // **** IP address display for STA mode goes here ****
-    if (g_app_params.mode == APP_MODE_STA) {
-        Paint_DrawString_EN(X_OFFSET, 10 + 24, "IP:", &CURR_FONT, BLACK, YELLOW);
-        Paint_DrawString_EN(X_OFFSET + 17 * 5, 10 + 24, g_app_params.my_ip, &CURR_FONT, BLACK, MAGENTA);
-    } else if (g_app_params.mode == APP_MODE_AP) {
-        char ap_ip_buf[16] = {0};
-        get_ap_ip_str(ap_ip_buf, sizeof(ap_ip_buf));
-        Paint_DrawString_EN(X_OFFSET, 10 + 24, "IP:", &CURR_FONT, BLACK, YELLOW);
-        Paint_DrawString_EN(X_OFFSET + 17 * 5, 10 + 24, ap_ip_buf, &CURR_FONT, BLACK, MAGENTA);
+    if (g_board->has_lcd) {
+        if (g_app_params.mode == APP_MODE_STA) {
+            Paint_DrawString_EN(X_OFFSET, 10 + 24, "IP:", &CURR_FONT, BLACK, YELLOW);
+            Paint_DrawString_EN(X_OFFSET + 17 * 5, 10 + 24, g_app_params.my_ip, &CURR_FONT, BLACK, MAGENTA);
+        } else if (g_app_params.mode == APP_MODE_AP) {
+            char ap_ip_buf[16] = {0};
+            get_ap_ip_str(ap_ip_buf, sizeof(ap_ip_buf));
+            Paint_DrawString_EN(X_OFFSET, 10 + 24, "IP:", &CURR_FONT, BLACK, YELLOW);
+            Paint_DrawString_EN(X_OFFSET + 17 * 5, 10 + 24, ap_ip_buf, &CURR_FONT, BLACK, MAGENTA);
+        }
     }
 
     esp_err_t ret_spi = ESP_OK;
@@ -1146,7 +1212,9 @@ void app_main(void) {
 
     set_la_input_sel(false);
     start_background_tasks();
-    draw_port_cfg_info();
+    if (g_board->has_lcd) {
+        draw_port_cfg_info();
+    }
     init_gpio_sw1_sw2();
 
 _wait:
@@ -1170,7 +1238,7 @@ _wait:
                 heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                 heap_caps_get_free_size(MALLOC_CAP_DMA));
 
-        if (g_app_params.mode == APP_MODE_AP) {
+        if (g_app_params.mode == APP_MODE_AP && g_board->has_lcd) {
             print_sta_info();
         }
 

@@ -454,7 +454,16 @@ static esp_err_t fpga_loader_handler(httpd_req_t *req) {
         if(cfg_stat)
 #else
        extern esp_err_t load_fpga(void);
-       if(ESP_OK != load_fpga())
+       esp_err_t fpga_err = load_fpga();
+       if (fpga_err == ESP_ERR_NOT_SUPPORTED) {
+            httpd_resp_send_err(req, HTTPD_501_NOT_IMPLEMENTED, "FPGA not supported on this board");
+            if (gbl_spi_h1 != NULL) {
+                spi_device_release_bus(gbl_spi_h1);
+            }
+            free(buf);
+            return ESP_OK;
+       }
+       if(ESP_OK != fpga_err)
 #endif
             httpd_resp_sendstr(req, "FPGA CFG Failed");
         else

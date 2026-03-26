@@ -9,6 +9,7 @@ set(sources
     network/network_mngr_ota.c
     network/descriptors.c
     network/uart_websocket.c
+    boards/board_profile.c
 )
 
 set(dependencies
@@ -38,7 +39,7 @@ idf_component_register(
     SRCS
         ${sources}
     INCLUDE_DIRS
-        . network ice40up5k
+        . network ice40up5k boards
     PRIV_REQUIRES
         ${dependencies}
         esp_https_server
@@ -55,4 +56,3 @@ idf_component_register(
 
 set(host "esp-idf")
 set(PLATFORM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/components/platform_include)
-
