@@ -630,7 +630,7 @@ esp_err_t uart_websocket_add_handlers(httpd_handle_t server) {
     };
     httpd_register_uri_handler(server, &websocket_uri);
 
-    if (gbl_pb_cfg == PB_UART_SRESET_VTARGET) {
+    if (!AEL_BOARD_IS_ESP32JTAG || gbl_pb_cfg == PB_UART_SRESET_VTARGET) {
         ESP_LOGI(TAG, "Starting UART tasks...");
         xTaskCreate(uart_read_task, "uart_read_task", 8192, NULL, 10, NULL);
         xTaskCreate(uart_write_task, "uart_write_task", 4096, NULL, 10, NULL);
