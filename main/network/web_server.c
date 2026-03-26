@@ -24,6 +24,7 @@
 #include "network_mngr_ota.h"
 #include "types.h"
 #include "uart_websocket.h"
+#include "../gpio_loopback_test.h"
 #include "../esp32jtag_common.h"
 #include "../port_cfg.h"
 #include "../ice40up5k/ice.h"
@@ -1407,6 +1408,11 @@ void run_test_uart(void) {
     snprintf(g_test_result_json, sizeof(g_test_result_json), "{\"test\": \"test_uart\", \"result\": \"pass\", \"details\": \"Loopback successful\"}");
 }
 
+void run_test_gpio_loopback(void) {
+    ESP_LOGI(TAG, "Running test_gpio_loopback...");
+    gpio_loopback_test_run_json(g_test_result_json, sizeof(g_test_result_json));
+}
+
 // Task that executes the test
 void test_runner_task(void *pvParameters) {
     char *test_name = (char *)pvParameters;
@@ -1419,6 +1425,7 @@ void test_runner_task(void *pvParameters) {
     else if (strcmp(test_name, "test_ad") == 0) run_test_ad();
     else if (strcmp(test_name, "test_iovoltage") == 0) run_test_iovoltage();
     else if (strcmp(test_name, "test_uart") == 0) run_test_uart();
+    else if (strcmp(test_name, "test_gpio_loopback") == 0) run_test_gpio_loopback();
     else {
         ESP_LOGE(TAG, "Unknown test type: %s", test_name);
         snprintf(g_test_result_json, sizeof(g_test_result_json), "{\"test\": \"%s\", \"result\": \"error\", \"details\": \"Unknown test type\"}", test_name);

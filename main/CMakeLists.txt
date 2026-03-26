@@ -10,6 +10,7 @@ set(sources
     network/descriptors.c
     network/uart_websocket.c
     boards/board_profile.c
+    gpio_loopback_test.c
 )
 
 set(dependencies
