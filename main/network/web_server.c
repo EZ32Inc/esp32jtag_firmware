@@ -1413,6 +1413,11 @@ void run_test_gpio_loopback(void) {
     gpio_loopback_test_run_json(g_test_result_json, sizeof(g_test_result_json));
 }
 
+void run_test_targetin_detect(void) {
+    ESP_LOGI(TAG, "Running test_targetin_detect...");
+    gpio_targetin_detect_run_json(g_test_result_json, sizeof(g_test_result_json));
+}
+
 // Task that executes the test
 void test_runner_task(void *pvParameters) {
     char *test_name = (char *)pvParameters;
@@ -1426,6 +1431,7 @@ void test_runner_task(void *pvParameters) {
     else if (strcmp(test_name, "test_iovoltage") == 0) run_test_iovoltage();
     else if (strcmp(test_name, "test_uart") == 0) run_test_uart();
     else if (strcmp(test_name, "test_gpio_loopback") == 0) run_test_gpio_loopback();
+    else if (strcmp(test_name, "test_targetin_detect") == 0) run_test_targetin_detect();
     else {
         ESP_LOGE(TAG, "Unknown test type: %s", test_name);
         snprintf(g_test_result_json, sizeof(g_test_result_json), "{\"test\": \"%s\", \"result\": \"error\", \"details\": \"Unknown test type\"}", test_name);

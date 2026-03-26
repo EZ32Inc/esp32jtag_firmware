@@ -120,6 +120,76 @@ static bool run_square_wave_check(uint32_t freq_hz, uint32_t cycles, uint32_t *e
     return observed_edges >= (cycles * 2U - 1U);
 }
 
+static esp_err_t configure_targetin_only(void)
+{
+    if (!AEL_GPIO_TEST_SUPPORTED) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    gpio_config_t in_conf = {
+        .pin_bit_mask = AEL_GPIO_TEST_TARGETIN_MASK,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_RETURN_ON_ERROR(gpio_config(&in_conf), TAG, "configure targetin input");
+    return ESP_OK;
+}
+
+static void sample_targetin(uint32_t duration_ms, uint32_t sample_step_us,
+                            uint32_t *samples_out, uint32_t *high_out,
+                            uint32_t *low_out, uint32_t *transitions_out,
+                            uint32_t *estimated_hz_out, const char **state_out)
+{
+    uint32_t samples = 0;
+    uint32_t high = 0;
+    uint32_t low = 0;
+    uint32_t transitions = 0;
+    const int64_t start_us = esp_timer_get_time();
+    const int64_t end_us = start_us + ((int64_t)duration_ms * 1000LL);
+    int prev = gpio_get_level(AEL_GPIO_TEST_TARGETIN);
+
+    while (esp_timer_get_time() < end_us) {
+        int level = gpio_get_level(AEL_GPIO_TEST_TARGETIN);
+        if (level) {
+            high++;
+        } else {
+            low++;
+        }
+        if (samples > 0 && level != prev) {
+            transitions++;
+        }
+        prev = level;
+        samples++;
+        esp_rom_delay_us(sample_step_us);
+    }
+
+    const int64_t actual_us = esp_timer_get_time() - start_us;
+    uint32_t estimated_hz = 0;
+    if (actual_us > 0 && transitions > 0) {
+        estimated_hz = (uint32_t)(((uint64_t)transitions * 1000000ULL) / (2ULL * (uint64_t)actual_us));
+    }
+
+    const char *state = "unknown";
+    if (transitions >= 4) {
+        state = "toggle";
+    } else if (high == samples && samples > 0) {
+        state = "high";
+    } else if (low == samples && samples > 0) {
+        state = "low";
+    } else {
+        state = "unstable";
+    }
+
+    if (samples_out) *samples_out = samples;
+    if (high_out) *high_out = high;
+    if (low_out) *low_out = low;
+    if (transitions_out) *transitions_out = transitions;
+    if (estimated_hz_out) *estimated_hz_out = estimated_hz;
+    if (state_out) *state_out = state;
+}
+
 bool gpio_loopback_test_is_supported(void)
 {
     return AEL_GPIO_TEST_SUPPORTED;
@@ -164,4 +234,45 @@ void gpio_loopback_test_run_json(char *out_json, size_t out_json_size)
              hz1k_ok ? "true" : "false",
              edges_100hz,
              edges_1khz);
+}
+
+void gpio_targetin_detect_run_json(char *out_json, size_t out_json_size)
+{
+    if (!out_json || out_json_size == 0U) {
+        return;
+    }
+
+    if (!AEL_GPIO_TEST_SUPPORTED) {
+        snprintf(out_json, out_json_size,
+                 "{\"test\":\"test_targetin_detect\",\"result\":\"unsupported\",\"details\":\"board profile does not define TARGETIN\"}");
+        return;
+    }
+
+    esp_err_t err = configure_targetin_only();
+    if (err != ESP_OK) {
+        snprintf(out_json, out_json_size,
+                 "{\"test\":\"test_targetin_detect\",\"result\":\"error\",\"details\":\"TARGETIN configuration failed: %s\"}",
+                 esp_err_to_name(err));
+        return;
+    }
+
+    uint32_t samples = 0;
+    uint32_t high = 0;
+    uint32_t low = 0;
+    uint32_t transitions = 0;
+    uint32_t estimated_hz = 0;
+    const char *state = "unknown";
+    sample_targetin(250, 25, &samples, &high, &low, &transitions, &estimated_hz, &state);
+
+    const char *result = (transitions >= 4U) ? "pass" : "fail";
+    snprintf(out_json, out_json_size,
+             "{\"test\":\"test_targetin_detect\",\"result\":\"%s\",\"pin\":%d,\"state\":\"%s\",\"samples\":%" PRIu32 ",\"high\":%" PRIu32 ",\"low\":%" PRIu32 ",\"transitions\":%" PRIu32 ",\"estimated_hz\":%" PRIu32 "}",
+             result,
+             (int)AEL_GPIO_TEST_TARGETIN,
+             state,
+             samples,
+             high,
+             low,
+             transitions,
+             estimated_hz);
 }
