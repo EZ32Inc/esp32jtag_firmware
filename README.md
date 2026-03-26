@@ -128,6 +128,34 @@ git clone --recursive https://github.com/EZ32Inc/esp32jtag_firmware.git
 cd esp32jtag_firmware
 ```
 
+### Choose a Board
+
+This project uses a Kconfig board profile. Use separate build directories so each board keeps its own configuration.
+
+For the EZ32 board:
+
+```bash
+. $IDF_PATH/export.sh
+idf.py -B build_board_esp32jtag menuconfig
+idf.py -B build_board_esp32jtag build
+```
+
+In `menuconfig`, set:
+- `OpenOCD-on-ESP32 Configuration` -> `AEL board profile` -> `ESP32JTAG (ESP32-S3)`
+
+For a generic ESP32-S3 DevKit:
+
+```bash
+. $IDF_PATH/export.sh
+idf.py -B build_board_esp32s3_devkit menuconfig
+idf.py -B build_board_esp32s3_devkit build
+```
+
+In `menuconfig`, set:
+- `OpenOCD-on-ESP32 Configuration` -> `AEL board profile` -> `Generic ESP32-S3 DevKit`
+
+The board choices come from `main/Kconfig.projbuild`, and the pin mappings and feature flags are defined in `components/platform_include/board_profile.h`.
+
 ### Build
 
 ```bash
