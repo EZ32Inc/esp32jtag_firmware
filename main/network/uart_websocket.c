@@ -1,10 +1,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <ctype.h>
+#include <inttypes.h>
 #include "esp_http_server.h"
 #include "esp_chip_info.h"
 #include "esp_random.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_vfs.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
@@ -69,6 +72,118 @@ resp_data_t resp_arg;				// response data
 uint8_t uart_data[UART_BUF_SIZE];	// uart data
 StreamBufferHandle_t xDataBuffer;	// stream buffer from UART to WS
 QueueHandle_t s_uart_queue;
+
+typedef struct {
+    bool tasks_expected;
+    bool tasks_started;
+    uint32_t total_rx_messages;
+    uint32_t total_rx_bytes;
+    uint32_t last_rx_len;
+    int64_t last_rx_us;
+    uint8_t last_rx_data[64];
+} uart_debug_state_t;
+
+static uart_debug_state_t s_uart_debug = {0};
+
+static void uart_debug_record_rx(const uint8_t *data, size_t len)
+{
+    size_t copy_len = len;
+
+    if (!data || len == 0) {
+        return;
+    }
+
+    s_uart_debug.total_rx_messages++;
+    s_uart_debug.total_rx_bytes += (uint32_t)len;
+    s_uart_debug.last_rx_len = (uint32_t)len;
+    s_uart_debug.last_rx_us = esp_timer_get_time();
+
+    if (copy_len > sizeof(s_uart_debug.last_rx_data)) {
+        copy_len = sizeof(s_uart_debug.last_rx_data);
+    }
+    memset(s_uart_debug.last_rx_data, 0, sizeof(s_uart_debug.last_rx_data));
+    memcpy(s_uart_debug.last_rx_data, data, copy_len);
+}
+
+static void uart_debug_format_preview(const uint8_t *data, size_t len, char *ascii, size_t ascii_size, char *hex, size_t hex_size)
+{
+    size_t preview_len = len > 16 ? 16 : len;
+    size_t ascii_pos = 0;
+    size_t hex_pos = 0;
+
+    if (ascii_size > 0) {
+        ascii[0] = '\0';
+    }
+    if (hex_size > 0) {
+        hex[0] = '\0';
+    }
+
+    for (size_t i = 0; i < preview_len; ++i) {
+        if (ascii_pos + 1 < ascii_size) {
+            ascii[ascii_pos++] = isprint(data[i]) ? (char)data[i] : '.';
+            ascii[ascii_pos] = '\0';
+        }
+        if (hex_pos + 3 < hex_size) {
+            int written = snprintf(hex + hex_pos, hex_size - hex_pos, "%02X%s", data[i], (i + 1U < preview_len) ? " " : "");
+            if (written < 0) {
+                break;
+            }
+            hex_pos += (size_t)written;
+        }
+    }
+}
+
+void uart_websocket_get_debug_json(char *out, size_t out_size)
+{
+    char ascii[sizeof(s_uart_debug.last_rx_data) + 1];
+    char hex[(sizeof(s_uart_debug.last_rx_data) * 3) + 1];
+    size_t preview_len;
+    int64_t age_ms = -1;
+
+    if (!out || out_size == 0) {
+        return;
+    }
+
+    preview_len = s_uart_debug.last_rx_len;
+    if (preview_len > sizeof(s_uart_debug.last_rx_data)) {
+        preview_len = sizeof(s_uart_debug.last_rx_data);
+    }
+    uart_debug_format_preview(
+        s_uart_debug.last_rx_data,
+        preview_len,
+        ascii,
+        sizeof(ascii),
+        hex,
+        sizeof(hex)
+    );
+
+    if (s_uart_debug.last_rx_us > 0) {
+        age_ms = (esp_timer_get_time() - s_uart_debug.last_rx_us) / 1000;
+    }
+
+    snprintf(
+        out,
+        out_size,
+        "{\"status\":\"ok\",\"uart_port_num\":%d,\"gpio_txd\":%d,\"gpio_rxd\":%d,"
+        "\"uart_port_sel\":%u,\"portb_cfg\":%u,\"tasks_expected\":%s,\"tasks_started\":%s,"
+        "\"total_rx_messages\":%" PRIu32 ",\"total_rx_bytes\":%" PRIu32 ","
+        "\"last_rx_len\":%" PRIu32 ",\"last_rx_age_ms\":%" PRId64 ","
+        "\"last_rx_ascii\":\"%s\",\"last_rx_hex\":\"%s\"}",
+        (int)UART_PORT_NUM,
+        (int)GPIO_UART_TXD,
+        (int)GPIO_UART_RXD,
+        (unsigned)g_app_params.uart_port_sel,
+        (unsigned)gbl_pb_cfg,
+        s_uart_debug.tasks_expected ? "true" : "false",
+        s_uart_debug.tasks_started ? "true" : "false",
+        s_uart_debug.total_rx_messages,
+        s_uart_debug.total_rx_bytes,
+        s_uart_debug.last_rx_len,
+        age_ms,
+        ascii,
+        hex
+    );
+}
 
 static int custom_log_vprintf(const char *format, va_list args) {
     if (g_log_monitor_enabled) {
@@ -316,6 +431,7 @@ static void uart_read_task(void *pvParameters) {
  */
 static void uart_read_task(void *pvParameters) {
     ESP_LOGI(TAG, "In uart_read_task()");
+    s_uart_debug.tasks_started = true;
 
     httpd_ws_frame_t ws_pkt;
 	memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
@@ -329,7 +445,11 @@ static void uart_read_task(void *pvParameters) {
 		uart_data[len] = 0x00;
 
 		if(len) {
-			ESP_LOGI(TAG, "From UART: len=%d, data: %.*s", len, len, uart_data);
+            char ascii[32];
+            char hex[64];
+            uart_debug_record_rx(uart_data, (size_t)len);
+            uart_debug_format_preview(uart_data, (size_t)len, ascii, sizeof(ascii), hex, sizeof(hex));
+			ESP_LOGI(TAG, "UART RX len=%d ascii='%s' hex=%s", len, ascii, hex);
 			// push data into stream
             xStreamBufferSend(xDataBuffer, uart_data, len, (TickType_t) 10);
             if (resp_arg.fd > 0) {
@@ -630,10 +750,16 @@ esp_err_t uart_websocket_add_handlers(httpd_handle_t server) {
     };
     httpd_register_uri_handler(server, &websocket_uri);
 
-    if (!AEL_BOARD_IS_ESP32JTAG || gbl_pb_cfg == PB_UART_SRESET_VTARGET) {
+    s_uart_debug.tasks_expected = (!AEL_BOARD_IS_ESP32JTAG || gbl_pb_cfg == PB_UART_SRESET_VTARGET);
+    if (s_uart_debug.tasks_expected) {
         ESP_LOGI(TAG, "Starting UART tasks...");
         xTaskCreate(uart_read_task, "uart_read_task", 8192, NULL, 10, NULL);
         xTaskCreate(uart_write_task, "uart_write_task", 4096, NULL, 10, NULL);
+    } else {
+        ESP_LOGW(TAG, "UART tasks not started: board=%d port_b_cfg=%u uart_port_sel=%u",
+                 AEL_BOARD_IS_ESP32JTAG ? 1 : 0,
+                 (unsigned)gbl_pb_cfg,
+                 (unsigned)g_app_params.uart_port_sel);
     }
 
     return ESP_OK;

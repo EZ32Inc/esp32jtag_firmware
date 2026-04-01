@@ -283,7 +283,7 @@ void gpio_uart_rxd_detect_run_json(char *out_json, size_t out_json_size)
         return;
     }
 
-    if (!AEL_GPIO_TEST_SUPPORTED || !GPIO_IS_VALID_GPIO(AEL_GPIO_UART_RXD)) {
+    if (!GPIO_IS_VALID_GPIO(AEL_GPIO_UART_RXD)) {
         snprintf(out_json, out_json_size,
                  "{\"test\":\"test_uart_rxd_detect\",\"result\":\"unsupported\",\"details\":\"board profile does not define a valid UART RX GPIO\"}");
         return;

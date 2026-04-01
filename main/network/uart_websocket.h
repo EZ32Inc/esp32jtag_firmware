@@ -12,6 +12,7 @@ extern "C" {
 #define UART_BUF_SIZE       (1024*4)
 
 esp_err_t uart_websocket_add_handlers(httpd_handle_t server);
+void uart_websocket_get_debug_json(char *out, size_t out_size);
 extern QueueHandle_t s_ws_client_queue;
 
 #ifdef __cplusplus

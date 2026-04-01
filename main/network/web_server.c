@@ -1847,6 +1847,18 @@ static esp_err_t reset_target_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t uart_debug_handler(httpd_req_t *req)
+{
+    char json[512];
+
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    uart_websocket_get_debug_json(json, sizeof(json));
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json);
+    return ESP_OK;
+}
+
 static esp_err_t version_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -2067,6 +2079,13 @@ httpd_uri_t uri_reset_target = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_uart_debug = {
+    .uri      = "/api/uart_debug",
+    .method   = HTTP_GET,
+    .handler  = uart_debug_handler,
+    .user_ctx = NULL
+};
+
 httpd_uri_t uri_sreset_config = {
     .uri      = "/api/sreset_config",
     .method   = HTTP_POST,
@@ -2249,6 +2268,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
     httpd_register_uri_handler(*http_handle, &uri_version);
     httpd_register_uri_handler(*http_handle, &uri_reset_target);
+    httpd_register_uri_handler(*http_handle, &uri_uart_debug);
     httpd_register_uri_handler(*http_handle, &uri_sreset_config);
     httpd_register_uri_handler(*http_handle, &uri_portd_output);
     httpd_register_uri_handler(*http_handle, &uri_portd_freq);
