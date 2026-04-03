@@ -10,7 +10,7 @@ if(${IDF_VERSION_MAJOR} LESS 5)
 endif()
 
 # Firmware release version — update here for each release
-set(PROJECT_VER "0.1.0")
+set(PROJECT_VER "0.2.0")
 
 # Capture git short commits at build time (baked into firmware image)
 execute_process(
