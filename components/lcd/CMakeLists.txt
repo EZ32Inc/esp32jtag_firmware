@@ -9,7 +9,7 @@ idf_component_register(
         "font8.c"
         "GUI_Paint.c"
         "image.c"
-        "LCD_1in83.c"
+#       "LCD_1in83.c"
         "LCD_Driver.c"
         "jtag.c"
 #        "gowin_esp32.c"
