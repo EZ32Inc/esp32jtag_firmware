@@ -1,0 +1,418 @@
+# Multi-Function Debug Tool for AI-Driven Embedded System Development
+
+ESP32JTAG Firmware is a powerful all-in-one debug and development platform built on the ESP32-S3. It integrates JTAG/SWD debugging, a 16-channel logic analyzer, FPGA programming, XVC server support, signal generation, and a browser-based configuration interface into a single compact device, accessible over Wi-Fi or USB.
+
+What makes ESP32JTAG especially distinctive is its ability to work seamlessly with AI-driven embedded development workflows. It is designed to pair naturally with [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab), enabling AI-assisted coding, flashing, signal capture, measurement, verification, and iterative debugging on real hardware.
+
+| Feature | Description |
+|---|---|
+| JTAG / SWD Debugging | Debug, program, and control supported targets |
+| 16-Channel Logic Analyzer | Capture and analyze digital waveforms |
+| FPGA Programming | Program supported FPGA devices |
+| XVC Server | Enable remote JTAG access via Xilinx Virtual Cable |
+| Signal Generation | Provide digital stimulus signals for testing and validation |
+| Web-Based Interface | Configure and operate the device from a browser |
+| AI-Driven Workflow Support | Integrates with AEL for closed-loop embedded development |
+
+
+| | |
+|---|---|
+| **Source code** | <https://github.com/EZ32Inc/esp32jtag_firmware> |
+| **Releases** | <https://github.com/EZ32Inc/esp32jtag_firmware/releases> |
+| **Recommended dev tool** | [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) |
+| **Build environment** | ESP-IDF v5.5.2 or newer |
+
+---
+
+## Features
+
+- **JTAG / SWD Debugger**
+  - [BlackMagic Probe](https://black-magic.org/) (BMP) — native GDB server
+  - [CMSIS-DAP](https://arm-software.github.io/CMSIS_5/DAP/html/index.html) over USB ([CherryDAP](https://github.com/cherry-embedded/CherryDAP))
+  - [XVC](https://docs.xilinx.com/r/en-US/ug908-vivado-programming-debugging/Virtual-Cable) (Vivado Virtual Cable) for FPGA development
+
+- **16-Channel Logic Analyzer**
+  - 264 MHz default sample rate (configurable)
+  - Configurable per-channel triggers (rising, falling, crossing, high, low)
+  - 128 KB PSRAM capture buffer
+  - Web-based viewer
+
+- **FPGA Support (ICE40UP5K)**
+  - Automatic bitstream loading on boot
+  - Port multiplexing for all debug interfaces
+  - SPI and GPIO configuration modes
+
+- **Network**
+  - WiFi AP mode (standalone hotspot) or STA mode (connects to existing network)
+  - WiFi provisioning
+  - OTA firmware updates over HTTPS
+  - WebSocket bridge for UART traffic
+
+- **Web Interface**
+  - HTTPS web server with embedded TLS certificate
+  - Basic-auth protected configuration pages
+  - Logic analyzer capture and visualization
+  - Debugger target / RTOS / interface selection
+  - Port A/B/C/D mode configuration
+  - SRESET polarity (active HIGH / active LOW) and pulse width (1–5000 ms) configuration — applied without reboot via `POST /api/sreset_config`
+
+- **Signal Generation (Port D)**
+  - Provides signal stimulus to the target system via Port D pins
+  - FPGA internal free-running counter output: bits [3:0] or [7:4] at 132 MHz
+  - Software square wave: 125 / 250 / 500 / 1000 Hz on all four Port D pins (~50% duty)
+  - Useful for clock injection, loopback self-test, and functional excitation of target circuits
+  - Applied instantly via web UI — no reboot required
+
+- **UART / USB**
+  - USB CDC or WebSocket-based UART bridge
+  - Configurable baud rate, data bits, stop bits, parity
+
+---
+
+## Hardware
+
+| Item | Value |
+|---|---|
+| MCU | ESP32-S3 |
+| Flash | 8 MB |
+| PSRAM | Required (logic analyzer buffer) |
+| FPGA | Lattice ICE40UP5K |
+| Display | Optional LCD (SPI3) |
+
+### Pin Map
+
+| Signal | GPIO |
+|---|---|
+| UART TX | 43 |
+| UART RX | 44 |
+| SPI CLK | 38 |
+| SPI MOSI | 14 |
+| SPI MISO | 39 |
+| SPI CS0 (manual) | 21 |
+| SPI CS1 | 13 |
+| SPI CS2 | 11 |
+| SPI CS3 | 5 |
+| SWDIO | 41 |
+| SWDIO RD/nWR | 45 |
+| Button SW1 | 0 |
+| Button SW2 | 48 |
+
+---
+
+## Port Modes
+
+The device has four logical ports (A–D). Each port is configured independently via the web UI or NVS storage.
+
+| Port | Available Modes |
+|---|---|
+| **A** | Logic Analyzer · BMP SWD · BMP JTAG |
+| **B** | Logic Analyzer · UART + Reset + Target Voltage |
+| **C** | Logic Analyzer · BMP SWD/JTAG · FPGA JTAG config · FPGA SPI config |
+| **D** | Logic Analyzer · FPGA XVC · Signal Generation (Counter Lo/Hi @ 132 MHz, GPIO Direct 125/250/500/1000 Hz) |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- [ESP-IDF v5.5.2 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
+- Python 3.8+
+- Git
+- Recommended: [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) for automated board bring-up and validation
+
+### Clone
+
+```bash
+git clone --recursive https://github.com/EZ32Inc/esp32jtag_firmware.git
+cd esp32jtag_firmware
+```
+
+### Choose a Board
+
+This project uses a Kconfig board profile. Use separate build directories so each board keeps its own configuration.
+
+For the EZ32 board:
+
+```bash
+. $IDF_PATH/export.sh
+idf.py -B build_board_esp32jtag menuconfig
+idf.py -B build_board_esp32jtag build
+```
+
+In `menuconfig`, set:
+- `OpenOCD-on-ESP32 Configuration` -> `AEL board profile` -> `ESP32JTAG (ESP32-S3)`
+
+For a generic ESP32-S3 DevKit:
+
+```bash
+. $IDF_PATH/export.sh
+idf.py -B build_board_esp32s3_devkit menuconfig
+idf.py -B build_board_esp32s3_devkit build
+```
+
+In `menuconfig`, set:
+- `OpenOCD-on-ESP32 Configuration` -> `AEL board profile` -> `Generic ESP32-S3 DevKit`
+
+The board choices come from `main/Kconfig.projbuild`, and the pin mappings and feature flags are defined in `components/platform_include/board_profile.h`.
+
+### Build
+
+```bash
+. $IDF_PATH/export.sh
+idf.py build
+```
+
+After a successful build two versioned release binaries are automatically generated in the `build/` directory:
+
+| File | Purpose |
+|---|---|
+| `esp32jtag_v<VER>_<DATE>_<GIT>_ota.bin` | OTA wireless update (primary method) |
+| `esp32jtag_v<VER>_<DATE>_<GIT>_full.bin` | Full merged flash image (factory / mass programming) |
+
+Example filenames:
+```
+esp32jtag_v0.1.0_20260325_085159_c14c3fe_ota.bin
+esp32jtag_v0.1.0_20260325_085159_c14c3fe_full.bin
+```
+
+The filename encodes version, UTC build timestamp, and git commit so you can always tell which is newer.
+
+### Firmware Update — OTA (primary, no USB cable required)
+
+1. Open `https://<device-ip>/ota_upload` in your browser.
+2. Select the `_ota.bin` file and click **Upload & Update**.
+3. The device reboots automatically into the new firmware.
+
+### Firmware Update — USB flash (factory / first-time programming)
+
+```bash
+# Using the full merged binary (single write from offset 0x0)
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 esp32jtag_v<VER>_<DATE>_<GIT>_full.bin
+```
+
+Or using idf.py during development:
+
+```bash
+idf.py -p /dev/ttyUSB0 flash monitor
+```
+
+### Recovery Mode (firmware crash / cannot flash normally)
+
+If the firmware has crashed or is stuck in a boot loop and normal flashing fails, force the device into ROM download mode using the **BOOT0** button (SW1, GPIO0):
+
+1. **Power off** the device (disconnect USB).
+2. **Hold** the **BOOT0** button (SW1) and keep it held.
+3. **Power on** (reconnect USB) while still holding BOOT0.
+4. **Release** BOOT0 after about one second.
+
+The device is now in ROM download mode — the LCD shows no output. Flash using the `_full.bin` file:
+
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 -b 460800 \
+  --before no_reset --after hard_reset \
+  write_flash 0x0 esp32jtag_v<VER>_<DATE>_<GIT>_full.bin
+```
+
+> Use `_full.bin` only — the `_ota.bin` file cannot be used in recovery mode because the web interface does not start.
+
+---
+
+## First Boot
+
+On first boot the device starts in **WiFi AP mode**.
+
+| Setting | Default |
+|---|---|
+| SSID | `esp32jtag` |
+| Password | `esp32jtag` |
+| Web UI | `https://192.168.4.1` |
+| Web username | `admin` |
+| Web password | `admin` |
+
+> The device uses a self-signed TLS certificate. Accept the browser security warning on first visit.
+
+---
+
+## Web Interface
+
+After connecting to the AP (or the local network in STA mode), open a browser and navigate to the device IP.
+
+| Path | Description |
+|---|---|
+| `/` | Main dashboard — port configuration, debugger settings |
+| `/loganalyzer` | Logic analyzer capture and waveform viewer |
+| `/help` | User guide |
+| `/credentials` | Change web UI username and password |
+| `/ota_upload` | Upload new firmware |
+| `/reset_to_factory` | Erase all NVS settings and reboot |
+
+### Debugger Configuration
+
+From the main dashboard you can select:
+
+- **Target** — target chip configuration file
+- **Interface** — JTAG or SWD
+- **RTOS** — FreeRTOS or none (for RTOS-aware stack unwinding)
+- **Dual Core** — enable SMP debugging
+- **Flash Support** — enable flash programming
+- **Debug Level** — verbosity (0–4)
+
+Press **Run** to save and reboot with the new configuration.
+
+### Target Reset (Port B)
+
+When Port B is configured as *Vtarget + UART + SReset*, the **Reset Target** button (and `POST /api/reset_target`) sends a configurable reset pulse on Port B pin 3.
+
+Two settings can be changed on the fly via the **Apply SRESET Settings, Port D Settings and Target IO Voltage** button (no reboot needed):
+
+| Setting | Default | Description |
+|---|---|---|
+| **SRESET Polarity** | Negative (active LOW) | *Negative*: idle HIGH, pulse LOW. *Positive*: idle LOW, pulse HIGH. |
+| **Pulse Width** | 100 ms | Duration of the reset pulse in milliseconds (1–5000). |
+
+The settings are applied immediately via `POST /api/sreset_config` and survive until the device reboots.
+
+---
+
+## Debugging
+
+### BlackMagic Probe (BMP)
+
+BMP exposes a native GDB server directly on the device.
+
+```bash
+arm-none-eabi-gdb firmware.elf
+(gdb) target extended-remote /dev/ttyACM0
+(gdb) monitor swdp_scan
+(gdb) attach 1
+```
+
+### CMSIS-DAP (USB)
+
+When connected via USB, the device appears as a CMSIS-DAP interface compatible with pyOCD and most IDEs (VS Code Cortex-Debug, Keil, IAR).
+
+### XVC (Vivado Virtual Cable)
+
+For FPGA development, configure Port D to **XVC** mode. Then connect Vivado to `<device-ip>:2542`.
+
+---
+
+## Logic Analyzer
+
+1. Open `https://<device-ip>/loganalyzer`
+2. Configure sample rate and channel triggers
+3. Click **Start Capture** (triggered) or **Instant Capture**
+4. The waveform appears in the browser once capture completes
+
+**Trigger types:** rising edge · falling edge · crossing · high level · low level
+
+**Buffer:** 128 KB at up to 264 MHz → ~500 µs full-speed capture window
+
+---
+
+## FPGA
+
+The ICE40UP5K FPGA is the signal-routing backbone of the device. It handles:
+
+- Logic analyzer signal capture (16 channels)
+- Protocol multiplexing across ports A–D
+- Reset signal generation
+- JTAG/SWD signal path selection
+
+The bitstream (`main/ice40up5k/bitstream.bin`) is embedded in the firmware and loaded automatically at startup. To update the bitstream, replace the file and rebuild.
+
+---
+
+## Partition Table
+
+| Name | Type | Offset | Size |
+|---|---|---|---|
+| NVS | data/nvs | 0x9000 | 24 KB |
+| OTA data | data/ota | 0xf000 | 8 KB |
+| PHY init | data/phy | 0x11000 | 4 KB |
+| factory | app/factory | 0x20000 | 5 MB |
+| ota_0 | app/ota_0 | — | 2 MB |
+| ota_1 | app/ota_1 | — | 2 MB |
+| storage (FAT) | data/fat | — | 528 KB |
+
+---
+
+## NVS Keys Reference
+
+| Key | Description |
+|---|---|
+| `ssid` / `pass` | WiFi STA credentials |
+| `ap_ssid` / `ap_pass` | WiFi AP credentials |
+| `wifi_mode` | `ap` or `sta` |
+| `file` | Target config file |
+| `rtos` | RTOS type |
+| `smp` | Dual-core enable (`1` or `3`) |
+| `flash` | Flash support (`auto` or `0`) |
+| `interface` | `0`=JTAG, `1`=SWD |
+| `debug` | Debug level (`1`–`5`) |
+| `pa_cfg` … `pd_cfg` | Port A–D mode |
+| `uart_baud` | UART baud rate |
+| `uart_psel` | UART port (`0`=USB CDC, `1`=WebSocket) |
+| `dis_usb_dap` | Disable USB DAP interface |
+
+---
+
+## Build Configuration
+
+Key `sdkconfig` options:
+
+| Option | Value |
+|---|---|
+| Target | `esp32s3` |
+| Flash size | 8 MB |
+| Flash frequency | 80 MHz |
+| CPU frequency | 240 MHz |
+| SPIRAM | Enabled (80 MHz) |
+| Main task stack | 32 KB |
+| Watchdog timeout | 15 s |
+| UI | Enabled via `CONFIG_UI_ENABLE` |
+
+---
+
+## Project Structure
+
+```
+esp32jtag/
+├── main/
+│   ├── main.c                  # Application entry point
+│   ├── types.h                 # Shared type definitions and NVS keys
+│   ├── esp32jtag_common.h      # Pin definitions and port enums
+│   ├── storage.c               # NVS read/write helpers
+│   ├── ui.c / ui_events.c      # LVGL display (optional)
+│   ├── ice40up5k/
+│   │   ├── ice.c               # FPGA SPI driver
+│   │   └── bitstream.bin       # ICE40UP5K bitstream (embedded)
+│   ├── network/
+│   │   ├── web_server.c        # HTTP/HTTPS handlers
+│   │   ├── network_mngr.c      # WiFi AP/STA management
+│   │   ├── network_mngr_ota.c  # OTA update handler
+│   │   ├── uart_websocket.c    # WebSocket ↔ UART bridge
+│   │   └── descriptors.c       # Port configuration descriptors
+│   └── web/                    # Embedded HTML assets
+├── components/
+│   ├── blackmagic_esp32/       # BlackMagic Probe (submodule)
+│   ├── CherryDAP/              # CMSIS-DAP over USB
+│   ├── lcd/                    # LCD display driver
+│   └── platform_include/       # POSIX shims for host headers
+├── CMakeLists.txt
+├── partitions_ota_2mb.csv
+└── sdkconfig.defaults
+```
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE) for details.
+
+Third-party components retain their own licenses:
+- **BlackMagic Probe** — GPL-3.0
+- **CherryUSB / CherryDAP** — Apache-2.0

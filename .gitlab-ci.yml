@@ -1,0 +1,90 @@
+stages:
+  - pre_check
+  - build
+
+# Global variables
+variables:
+  ESP_IDF_TAG_LATEST: "latest"
+  ESP_IDF_TAG_v50: "release-v5.0"
+  ESP_IDF_TAG_v51: "release-v5.1"
+  ESP_IDF_TAG_v52: "release-v5.2"
+  APP_NAME: "openocd-on-esp32"
+
+.add_gitlab_key: &add_gitlab_key |
+  command -v ssh-agent >/dev/null || exit 1
+  eval $(ssh-agent -s)
+  printf '%s\n' "${GITLAB_KEY}" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || true
+
+.submodules_mirror_update: &submodules_mirror_update |
+  # Gitlab doesn't clean submodule contents
+  git submodule foreach "git clean -d -x -f" || true
+  # Use local mirror for submodules
+  git config submodule.components/jimtcl/jimtcl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/jimtcl.git
+  git config submodule.main/openocd.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/openocd-esp32.git
+  git submodule update --init
+
+.build_template:
+  stage: build
+  tags:
+    - build
+  variables:
+    CHIP_NAME: "esp32s3"
+  script:
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - IDF_TARGET=${CHIP_NAME} idf.py build
+    - cd build
+    - esptool.py --chip ${CHIP_NAME} merge_bin -o ${APP_NAME}_merged.bin @flash_args
+  needs:
+    - job: pre_commit
+      optional: true
+
+  artifacts:
+    paths:
+      - build/flasher_args.json
+      - build/${APP_NAME}.elf
+      - build/${APP_NAME}.bin
+      - build/bootloader/bootloader.bin
+      - build/bootloader/bootloader.elf
+      - build/partition_table/partition-table.bin
+      - build/${APP_NAME}_merged.bin
+    expire_in: 2 weeks
+
+build_latest:
+  extends: .build_template
+  image: espressif/idf:$ESP_IDF_TAG_LATEST
+
+build_v52:
+  extends: .build_template
+  image: espressif/idf:$ESP_IDF_TAG_v52
+
+build_v51:
+  extends: .build_template
+  image: espressif/idf:$ESP_IDF_TAG_v51
+
+build_v50:
+  extends: .build_template
+  image: espressif/idf:$ESP_IDF_TAG_v50
+
+pre_commit:
+  stage: pre_check
+  image: python:3.11-alpine3.18
+  before_script:
+    - apk add git
+    - pip install pre-commit
+  script:
+    - echo "Merge request is from ${CI_COMMIT_REF_NAME} into ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}"
+    - git fetch origin ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} ${CI_COMMIT_REF_NAME}
+    - export from_sha=$(git merge-base HEAD origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME})
+    - echo "Checking changes from ${from_sha} to ${CI_COMMIT_SHA}:"
+    - git log --oneline ${from_sha}..${CI_COMMIT_SHA}
+    - echo "Modified files:"
+    - git diff-tree --no-commit-id --name-only -r ${from_sha} ${CI_COMMIT_SHA}
+    - echo "Running pre-commit:"
+    - pre-commit run --from ${from_sha} --to ${CI_COMMIT_SHA}
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  tags:
+    - build
