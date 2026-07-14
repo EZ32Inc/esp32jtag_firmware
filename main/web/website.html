@@ -462,6 +462,28 @@
         </div>
 -->
       <div class="panel">
+        <h3>USB CMSIS-DAP</h3>
+        <div style="margin-top: 8px; line-height: 2.0;">
+          <label style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="enable-usb-dap">
+            <span>Enable USB CMSIS-DAP</span>
+          </label>
+          <p style="font-size: 0.85em; color: #666; margin: 8px 0 0 0;">
+            Checked: Use CMSIS-DAP over USB (disables WiFi BMP debug).<br>
+            Unchecked: Use WiFi BMP for debugging (default).<br>
+            <b>Changing this requires a reboot.</b>
+          </p>
+          <label style="display: flex; align-items: center; gap: 20px; margin-top: 10px;">
+            <span>UART Port:</span>
+            <select id="uart-port-sel">
+              <option value="0">USB (CDC ACM)</option>
+              <option value="1">Web Terminal</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="panel">
         <h3>Wi-Fi Configuration</h3>
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
           <label style="width: 100px;">WiFi Mode</label>
@@ -754,8 +776,8 @@
         if (data.uartDataBits) document.getElementById("uart-dbits").value = data.uartDataBits;
         if (data.uartStopBits) document.getElementById("uart-sbits").value = data.uartStopBits;
         if (data.uartParity) document.getElementById("uart-parity").value = data.uartParity;
-
-        // disableUsbDapCom is fixed — not loaded from server
+        if (data.uartPortSel) document.getElementById("uart-port-sel").value = data.uartPortSel;
+        if (typeof data.disableUsbDapCom !== 'undefined') document.getElementById("enable-usb-dap").checked = !data.disableUsbDapCom;
       }
 
 
@@ -885,10 +907,12 @@
         var otaUrlElem = document.getElementById("ota-url");
         var otaUrl = otaUrlElem ? otaUrlElem.value : "";
 
-        // Fixed values: not user-configurable
+        // MCU interface is always GPIO
         var mcuInterface = "GPIO";
 
-        var disableUsbDapCom = true;
+        // USB CMSIS-DAP: checked = enable (disableUsbDapCom = false)
+        var enableUsbDap = document.getElementById("enable-usb-dap").checked;
+        var disableUsbDapCom = !enableUsbDap;
 
         // Validation: SSID required for Station Mode
         if (wifiMode === "SM" && ssid === "") {
@@ -903,8 +927,8 @@
           return;
         }
 
-        // Fixed value: not user-configurable
-        var uartPortSel = "1";
+        // UART port selection: 0=USB, 1=Web Terminal
+        var uartPortSel = document.getElementById("uart-port-sel").value;
 
         var systemConfigJson = {
           pacfg: pacfg,
