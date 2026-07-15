@@ -494,13 +494,6 @@
             </label>
           </div>
         </div>
-        <!--
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
-          <label for="ota-url" style="display: inline-block; width: 100px;">OTA URL</label>
-          <input type="text" id="ota-url" placeholder="http://example.com/firmware.bin">
-        </div>
-      </div>
--->
       </div>
 
       <div class="panel">
@@ -531,6 +524,12 @@
         <div style="margin-top: 10px;">
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
+        </div>
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;">
+          <p style="font-size: 0.82em; color: #666; margin: 0 0 8px 0;">
+            "Reboot to Bootloader" reboots the ESP32JTAG and attempts to enter reflash boot mode. After reboot, run <code>esptool --port /dev/ttyACM0 --chip esp32s3 --before default-reset run</code> to trigger download mode, or hold the BOOT0 button (SW1) while powering up the device, then release it. This is needed when using CMSIS-DAP USB mode (serial port unavailable), when the firmware is not booting properly, or when flashing via esptool instead of OTA.
+          </p>
+          <button type="button" onclick="rebootBootloader()" style="background: #e74c3c; color: white;">Reboot to Bootloader</button>
         </div>
       </div>
 
@@ -567,6 +566,21 @@
       </div>
       <div id="ota-status" style="display:none; margin:10px 0; padding:10px 14px; border-radius:5px; font-size:0.95em;"></div>
       <button type="button" id="ota-upload-button" disabled onclick="uploadOtaFirmware()">Upload & Update</button>
+
+      <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+        <div id="ota-partition-info" style="font-family: monospace; font-size: 0.88em; margin-bottom: 10px; color: #222;">
+          Loading partition info...
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button type="button" onclick="switchOtaPartition()" style="background: #f39c12; color: white;">Switch to Alternate Partition</button>
+        </div>
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;">
+          <p style="font-size: 0.82em; color: #666; margin: 0 0 8px 0;">
+            "Reboot to Bootloader" reboots the ESP32JTAG and attempts to enter reflash boot mode. After reboot, run <code>esptool --port /dev/ttyACM0 --chip esp32s3 --before default-reset run</code> to trigger download mode, or hold the BOOT0 button (SW1) while powering up the device, then release it. This is needed when using CMSIS-DAP USB mode (serial port unavailable), when the firmware is not booting properly, or when flashing via esptool instead of OTA.
+          </p>
+          <button type="button" onclick="rebootBootloader()" style="background: #e74c3c; color: white;">Reboot to Bootloader</button>
+        </div>
+      </div>
     </form>
     <footer>
       <span>&copy; EZ32 Technologies Inc. &nbsp;<a href="https://www.ez32.com" target="_blank" rel="noopener">www.ez32.com</a></span>
@@ -1197,6 +1211,51 @@
             }
           })
           .catch(function() {});
+        loadOtaPartitionInfo();
+      }
+
+      function loadOtaPartitionInfo() {
+        fetch('/api/ota_status')
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(d) {
+            if (!d) return;
+            var el = document.getElementById('ota-partition-info');
+            if (!el) return;
+            var html = '';
+            if (d.current) {
+              html += '<b>Current:</b> ' + d.current.label +
+                ' &mdash; v' + d.current.version;
+              if (d.current.date && d.current.commit) {
+                html += ' (build ' + d.current.date + ' ' + d.current.time +
+                  ' commit ' + d.current.commit + ')';
+              }
+              html += '<br>';
+            }
+            if (d.has_alternate && d.alternate) {
+              html += '<b>Alternate:</b> ' + d.alternate.label +
+                ' &mdash; v' + d.alternate.version;
+              if (d.alternate.date && d.alternate.commit) {
+                html += ' (build ' + d.alternate.date + ' ' + d.alternate.time +
+                  ' commit ' + d.alternate.commit + ')';
+              }
+            } else {
+              html += '<b>Alternate:</b> none';
+            }
+            el.innerHTML = html;
+          })
+          .catch(function() {});
+      }
+
+      function rebootBootloader() {
+        if (!confirm('Reboot into ROM bootloader mode? You will need esptool to flash new firmware.')) return;
+        showRebootCountdown('Entering bootloader mode...', 5);
+        fetch('/reboot_bootloader', { method: 'POST' }).catch(function() {});
+      }
+
+      function switchOtaPartition() {
+        if (!confirm('Switch to the other OTA partition and reboot?')) return;
+        showRebootCountdown('Switching OTA partition...', 5);
+        fetch('/switch_ota_partition', { method: 'POST' }).catch(function() {});
       }
 
       let ws;

@@ -1928,6 +1928,133 @@ httpd_uri_t uri_reset_to_factory = {
     .user_ctx  = NULL
 };
 
+static esp_err_t reboot_bootloader_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+    ESP_LOGW(TAG, "Reboot to bootloader requested");
+    httpd_resp_sendstr(req, "Rebooting. After reboot, use esptool with --before default-reset to enter bootloader mode, or hold SW1 (BOOT0) during power-up.");
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    esp_restart();
+    return ESP_OK;
+}
+
+httpd_uri_t uri_reboot_bootloader = {
+    .uri       = "/reboot_bootloader",
+    .method    = HTTP_POST,
+    .handler   = reboot_bootloader_handler,
+    .user_ctx  = NULL
+};
+
+static esp_err_t switch_ota_partition_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
+
+    if (!running || !next) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Cannot get OTA partitions");
+        return ESP_FAIL;
+    }
+
+    if (running == next) {
+        httpd_resp_sendstr(req, "No alternate OTA partition available.");
+        return ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "Switching OTA partition: %s -> %s", running->label, next->label);
+    esp_err_t err = esp_ota_set_boot_partition(next);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to set boot partition");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_sendstr(req, "Switched OTA partition. Rebooting...");
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    esp_restart();
+    return ESP_OK;
+}
+
+httpd_uri_t uri_switch_ota = {
+    .uri       = "/switch_ota_partition",
+    .method    = HTTP_POST,
+    .handler   = switch_ota_partition_handler,
+    .user_ctx  = NULL
+};
+
+static esp_err_t ota_status_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+
+    if (running) {
+        cJSON *cur = cJSON_CreateObject();
+        if (cur) {
+            cJSON_AddStringToObject(cur, "label", running->label);
+            esp_app_desc_t desc;
+            if (esp_ota_get_partition_description(running, &desc) == ESP_OK) {
+                cJSON_AddStringToObject(cur, "version", desc.version);
+                cJSON_AddStringToObject(cur, "date", desc.date);
+                cJSON_AddStringToObject(cur, "time", desc.time);
+                char sha[8] = {0};
+                for (int i = 0; i < 3; i++)
+                    snprintf(sha + i*2, 3, "%02x", desc.app_elf_sha256[i]);
+                cJSON_AddStringToObject(cur, "commit", sha);
+            } else {
+                cJSON_AddStringToObject(cur, "version", "unknown");
+            }
+            cJSON_AddItemToObject(root, "current", cur);
+        }
+    }
+
+    if (next) {
+        cJSON *nxt = cJSON_CreateObject();
+        if (nxt) {
+            cJSON_AddStringToObject(nxt, "label", next->label);
+            esp_app_desc_t desc;
+            if (esp_ota_get_partition_description(next, &desc) == ESP_OK) {
+                cJSON_AddStringToObject(nxt, "version", desc.version);
+                cJSON_AddStringToObject(nxt, "date", desc.date);
+                cJSON_AddStringToObject(nxt, "time", desc.time);
+                char sha[8] = {0};
+                for (int i = 0; i < 3; i++)
+                    snprintf(sha + i*2, 3, "%02x", desc.app_elf_sha256[i]);
+                cJSON_AddStringToObject(nxt, "commit", sha);
+            } else {
+                cJSON_AddStringToObject(nxt, "version", "empty");
+            }
+            cJSON_AddItemToObject(root, "alternate", nxt);
+            cJSON_AddBoolToObject(root, "has_alternate", true);
+        }
+    } else {
+        cJSON_AddBoolToObject(root, "has_alternate", false);
+    }
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    if (!json_str) {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to serialize JSON");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json_str);
+    free(json_str);
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
+httpd_uri_t uri_ota_status = {
+    .uri       = "/api/ota_status",
+    .method    = HTTP_GET,
+    .handler   = ota_status_handler,
+    .user_ctx  = NULL
+};
+
 httpd_uri_t uri_ota_upload = {
     .uri      = "/ota_upload",
     .method   = HTTP_POST,
@@ -2234,7 +2361,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     config.prvtkey_pem = prvtkey_buf;
     config.prvtkey_len = prvtkey_len + 1; // Include null terminator
 
-    config.httpd.max_uri_handlers = 30;
+    config.httpd.max_uri_handlers = 45;
     config.httpd.stack_size = 10240; // Increased stack for SSL operations
 
     ESP_LOGI(TAG, "Starting HTTPS Server on port: '%d'", config.httpd.server_port);
@@ -2256,6 +2383,9 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_log_error);
     httpd_register_uri_handler(*http_handle, &uri_ota_upload);
     httpd_register_uri_handler(*http_handle, &uri_reset_to_factory);
+    httpd_register_uri_handler(*http_handle, &uri_reboot_bootloader);
+    httpd_register_uri_handler(*http_handle, &uri_switch_ota);
+    httpd_register_uri_handler(*http_handle, &uri_ota_status);
 
     httpd_register_err_handler(*http_handle, HTTPD_404_NOT_FOUND, not_found_handler);
     ESP_ERROR_CHECK(uart_websocket_add_handlers(*http_handle));
