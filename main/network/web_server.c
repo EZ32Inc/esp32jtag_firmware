@@ -30,6 +30,7 @@
 #include "../ice40up5k/ice.h"
 #include "../version_info.h"
 #include "version.h"        /* BM FIRMWARE_VERSION from blackmagic_esp32 component */
+#include "gdb_main.h"       /* cur_target, gdb_target_running */
 #include "mbedtls/base64.h"
 
 static esp_err_t check_auth(httpd_req_t *req) {
@@ -1884,6 +1885,40 @@ static esp_err_t version_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t debug_status_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+
+    if (cur_target) {
+        cJSON_AddBoolToObject(root, "connected", true);
+        cJSON_AddStringToObject(root, "state", gdb_target_running ? "running" : "halted");
+    } else {
+        cJSON_AddBoolToObject(root, "connected", false);
+        cJSON_AddStringToObject(root, "state", "disconnected");
+    }
+
+    cJSON_AddBoolToObject(root, "port_c_active", gbl_pc_cfg == PC_BMP_SWD_JTAG);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    if (!json_str) {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to serialize JSON");
+        return ESP_FAIL;
+    }
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json_str);
+    free(json_str);
+
+    return ESP_OK;
+}
+
 esp_err_t reset_to_factory_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_OK;
 
@@ -2069,6 +2104,13 @@ httpd_uri_t uri_version = {
     .uri      = "/api/version",
     .method   = HTTP_GET,
     .handler  = version_handler,
+    .user_ctx = NULL
+};
+
+httpd_uri_t uri_debug_status = {
+    .uri      = "/api/debug_status",
+    .method   = HTTP_GET,
+    .handler  = debug_status_handler,
     .user_ctx = NULL
 };
 
@@ -2267,6 +2309,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_la_configure);
     httpd_register_uri_handler(*http_handle, &uri_la_get_settings);
     httpd_register_uri_handler(*http_handle, &uri_version);
+    httpd_register_uri_handler(*http_handle, &uri_debug_status);
     httpd_register_uri_handler(*http_handle, &uri_reset_target);
     httpd_register_uri_handler(*http_handle, &uri_uart_debug);
     httpd_register_uri_handler(*http_handle, &uri_sreset_config);
