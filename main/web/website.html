@@ -532,6 +532,12 @@
           <button type="button" onclick="setToDefault()">Set to default</button>
           <button type="button" onclick="sendCredentials()">Save settings & Restart</button>
         </div>
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;">
+          <p style="font-size: 0.82em; color: #666; margin: 0 0 8px 0;">
+            "Reboot to Bootloader" reboots the ESP32JTAG and attempts to enter reflash boot mode. After reboot, run <code>esptool --port /dev/ttyACM0 --chip esp32s3 --before default-reset run</code> to trigger download mode, or hold the BOOT0 button (SW1) while powering up the device, then release it. This is needed when using CMSIS-DAP USB mode (serial port unavailable), when the firmware is not booting properly, or when flashing via esptool instead of OTA.
+          </p>
+          <button type="button" onclick="rebootBootloader()" style="background: #e74c3c; color: white;">Reboot to Bootloader</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -1197,6 +1203,12 @@
             }
           })
           .catch(function() {});
+      }
+
+      function rebootBootloader() {
+        if (!confirm('Reboot into ROM bootloader mode? You will need esptool to flash new firmware.')) return;
+        showRebootCountdown('Entering bootloader mode...', 5);
+        fetch('/reboot_bootloader', { method: 'POST' }).catch(function() {});
       }
 
       let ws;
