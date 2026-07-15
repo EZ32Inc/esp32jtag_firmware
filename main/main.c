@@ -972,6 +972,7 @@ esp_err_t set_portd_freq(uint32_t freq_hz)
 }
 
 bool gbl_sw2_gpio48_flag = false;
+static bool g_force_dbg_redraw = false;
 void check_sw1_sw2(void)
 {
     static uint8_t L0 = 0, L48 = 0;    /* Previous GPIO levels, persist across calls */
@@ -1034,6 +1035,51 @@ static void draw_port_cfg_info(void)
         (gbl_pc_cfg == PC_BMP_SWD_JTAG) ? "SWD/JTAG" : "LA", &CURR_FONT, BLACK, MAGENTA);
     Paint_DrawString_EN(X_OFFSET + 16*PAINT_CHAR_WIDTH, y,
         (gbl_pd_cfg == PD_FPGA_XVC) ? "XVC" : "LA", &CURR_FONT, BLACK, MAGENTA);
+}
+
+/* Draw JTAG/SWD debug connection status on LCD. */
+static void draw_debug_status(void)
+{
+    if (!g_board->has_lcd || gbl_pc_cfg != PC_BMP_SWD_JTAG)
+        return;
+
+    static char prev_status[32] = {0};
+    char status[32] = {0};
+
+    bool usb_dap_enabled = false;
+    {
+        char *val = NULL;
+        if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &val) == ESP_OK && val) {
+            usb_dap_enabled = (strcmp(val, "1") != 0);
+            free(val);
+        }
+    }
+
+    if (usb_dap_enabled) {
+        strcpy(status, "DBG: USB CMSIS-DAP");
+    } else if (cur_target) {
+        if (gdb_target_running)
+            strcpy(status, "DBG: Running");
+        else
+            strcpy(status, "DBG: Halted");
+    } else {
+        strcpy(status, "DBG: No target");
+    }
+
+    if (g_force_dbg_redraw) {
+        prev_status[0] = '\0';
+        g_force_dbg_redraw = false;
+    }
+
+    if (strcmp(prev_status, status) != 0) {
+        uint32_t y = 10 + 24*5 + 30;
+        char padded[32] = {0};
+        snprintf(padded, sizeof(padded), "%-24s", status);
+        uint16_t color = usb_dap_enabled ? BLUE :
+            (cur_target ? (gdb_target_running ? GREEN : YELLOW) : GRAY);
+        Paint_DrawString_EN(X_OFFSET, y, padded, &CURR_FONT, BLACK, color);
+        snprintf(prev_status, sizeof(prev_status), "%s", status);
+    }
 }
 
 /* Start background tasks (GDB, logic analyser, XVC). */
@@ -1242,6 +1288,7 @@ _wait:
             print_sta_info();
         }
 
+        draw_debug_status();
         vTaskDelay(3000 / portTICK_PERIOD_MS);
     }
 
