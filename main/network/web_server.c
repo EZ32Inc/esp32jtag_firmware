@@ -1945,6 +1945,22 @@ httpd_uri_t uri_reset_to_factory = {
     .user_ctx  = NULL
 };
 
+static esp_err_t reboot_bootloader_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_OK;
+    ESP_LOGW(TAG, "Reboot to bootloader requested");
+    httpd_resp_sendstr(req, "Rebooting. After reboot, use esptool with --before default-reset to enter bootloader mode, or hold SW1 (BOOT0) during power-up.");
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    esp_restart();
+    return ESP_OK;
+}
+
+httpd_uri_t uri_reboot_bootloader = {
+    .uri       = "/reboot_bootloader",
+    .method    = HTTP_POST,
+    .handler   = reboot_bootloader_handler,
+    .user_ctx  = NULL
+};
+
 httpd_uri_t uri_ota_upload = {
     .uri      = "/ota_upload",
     .method   = HTTP_POST,
@@ -2251,7 +2267,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     config.prvtkey_pem = prvtkey_buf;
     config.prvtkey_len = prvtkey_len + 1; // Include null terminator
 
-    config.httpd.max_uri_handlers = 30;
+    config.httpd.max_uri_handlers = 45;
     config.httpd.stack_size = 10240; // Increased stack for SSL operations
 
     ESP_LOGI(TAG, "Starting HTTPS Server on port: '%d'", config.httpd.server_port);
@@ -2273,6 +2289,7 @@ esp_err_t web_server_start(httpd_handle_t *http_handle) {
     httpd_register_uri_handler(*http_handle, &uri_log_error);
     httpd_register_uri_handler(*http_handle, &uri_ota_upload);
     httpd_register_uri_handler(*http_handle, &uri_reset_to_factory);
+    httpd_register_uri_handler(*http_handle, &uri_reboot_bootloader);
 
     httpd_register_err_handler(*http_handle, HTTPD_404_NOT_FOUND, not_found_handler);
     ESP_ERROR_CHECK(uart_websocket_add_handlers(*http_handle));
