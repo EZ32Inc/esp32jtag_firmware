@@ -884,15 +884,24 @@ esp_err_t set_sreset(bool assert_reset)
     uint8_t tx[3]={0x0,0,0};
     uint8_t rx[3]={0};
     tx[0] = global_data_reg_1 | 0x80;
-    if (assert_reset) {
+    /* Convert the logical reset state to the configured electrical level. */
+    const bool output_high = gbl_sreset_polarity ? !assert_reset : assert_reset;
+    if (output_high) {
         global_data_reg_0 |= SRESET;
     } else {
         global_data_reg_0 &= ~SRESET;
     }
     tx[1] = global_data_reg_0;
     ret1 = spi_device4_transfer_data(tx, rx, 3);
-    ESP_LOGI(TAG, "set_sreset(%d): global_data_reg_0=0x%02x", assert_reset, global_data_reg_0);
+    ESP_LOGI(TAG, "set_sreset(asserted=%d, level=%s): global_data_reg_0=0x%02x",
+             assert_reset, output_high ? "HIGH" : "LOW", global_data_reg_0);
     return ret1;
+}
+
+bool sreset_is_asserted(void)
+{
+    const bool output_high = (global_data_reg_0 & SRESET) != 0;
+    return gbl_sreset_polarity ? !output_high : output_high;
 }
 
 /* Control Port D (P3) signal output via data_reg_1 outsig_sel field.
@@ -1207,6 +1216,9 @@ void app_main(void) {
     bool b_use_portc = (gbl_pc_cfg == PC_BMP_SWD_JTAG);
     bool b_use_portd = gbl_pd_cfg != PD_LOGICANALYZER;
     ESP_LOGI(TAG, "To set_cfga(), Using %s for SWD/JTAG, b_use_porta=%d, b_use_portc=%d", SPI_nGPIO ? "SPI" : "GPIO", b_use_porta, b_use_portc);
+    /* Establish the safe inactive level while Port B is still disconnected,
+     * then enable its output. set_cfga() preserves the SRESET bit. */
+    set_sreset(false);
     //esp32jtag_common.h:esp_err_t set_cfga(bool use_portc, bool use_porta, bool njtag_swdio, bool swd_gpio);
     set_cfga(b_use_porta, b_use_portb, b_use_portc, b_use_portd, true, !SPI_nGPIO); // use_portc, not use_porta, swdio, SPI not gpio
 

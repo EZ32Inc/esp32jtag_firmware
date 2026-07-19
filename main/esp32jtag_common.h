@@ -68,6 +68,7 @@
 
 esp_err_t set_la_input_sel(bool use_test_signal);//set or clear LA_INPUT_SEL
 esp_err_t set_sreset(bool assert_reset);          //assert/deassert SRESET on Port B pin3
+bool sreset_is_asserted(void);
 
 /* Port D output mode constants (data_reg_1 outsig_sel field) */
 #define PORTD_OUT_TRISTATE    0  /* tristate — LA input (default) */
@@ -106,6 +107,7 @@ extern uint32_t gbl_trigger_position;
 extern uint32_t gbl_sample_rate;
 extern bool gbl_trigger_enabled;
 extern bool gbl_trigger_mode_or;
+extern uint8_t gbl_sreset_polarity; /* 0=active HIGH, 1=active LOW */
 extern trigger_edge_t gbl_channel_triggers[16];
 extern uint8_t gbl_sample_rate_reg;
 

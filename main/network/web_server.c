@@ -1801,6 +1801,10 @@ static esp_err_t sreset_config_handler(httpd_req_t *req) {
     }
     cJSON_Delete(root);
 
+    /* A polarity change also changes the electrical idle level. Apply the
+     * inactive state immediately so the target is never left asserted. */
+    set_sreset(false);
+
     ESP_LOGI(TAG, "sreset_config: polarity=%d pulse_ms=%lu",
              gbl_sreset_polarity, (unsigned long)gbl_sreset_pulse_ms);
 
@@ -1830,14 +1834,10 @@ static esp_err_t reset_target_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    /* Pulse SRESET using configured polarity and pulse width.
-     * Positive (active HIGH): assert=true  → HIGH for pulse_ms → LOW
-     * Negative (active LOW):  assert=false → LOW  for pulse_ms → HIGH
-     *   (set_sreset idle state is LOW; for active-LOW we invert) */
-    bool assert_val = (gbl_sreset_polarity == 0);   /* positive: assert=true */
-    set_sreset(assert_val);
+    /* set_sreset() accepts a logical asserted state and applies polarity. */
+    set_sreset(true);
     vTaskDelay(pdMS_TO_TICKS(gbl_sreset_pulse_ms));
-    set_sreset(!assert_val);
+    set_sreset(false);
 
     char msg[64];
     snprintf(msg, sizeof(msg), "Reset pulse sent (%lu ms, %s)",
