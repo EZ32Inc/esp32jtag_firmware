@@ -295,52 +295,13 @@
         this.testSignalTopToggle = document.getElementById("testSignalTopToggle");
         this.statusBar = document.getElementById("statusBar");
 
-        // Event Listeners for Canvas
+        // Event Listeners for Canvas. Mouse movement is handled only by
+        // handleMouseMove(), registered in bindEvents(). Keeping a second
+        // listener here used to double all hover/measurement work.
         this.canvas.addEventListener('mouseleave', () => {
           this.isDragging = false;
           this.hoverState.active = false;
-          this.requestRender();
-        });
-
-        this.canvas.addEventListener('mousemove', (e) => {
-          const rect = this.canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-
-          if (this.isDragging) {
-            const dx = x - this.dragStartX;
-            const samplesMoved = Math.round(dx * (this.samplesPerScreen / this.canvas.width));
-            this.offset = Math.max(0, this.dragStartOffset - samplesMoved);
-            this.requestRender();
-          } else {
-            // Hover logic
-            this.hoverState.active = true;
-            this.hoverState.x = x;
-            this.hoverState.y = y;
-
-            // Determine which channel is being hovered
-            let currentY = this.topBarHeight + this.timeAxisHeight + this.waveformOffset;
-            this.hoverState.channel = -1;
-            for (let i = 0; i < this.numChannels; i++) {
-              if (y >= currentY && y <= currentY + this.channelHeights[i]) {
-                this.hoverState.channel = i;
-                break;
-              }
-              currentY += this.channelHeights[i] + 5;
-            }
-
-            // Determine sample index
-            const xscale = (this.canvas.width - this.labelOffset) / (this.samplesPerScreen - 1);
-            if (x >= this.labelOffset) {
-              const relativeX = x - this.labelOffset;
-              const sampleOffset = Math.round(relativeX / xscale);
-              this.hoverState.sampleIndex = this.offset + sampleOffset;
-            } else {
-              this.hoverState.sampleIndex = -1;
-            }
-
-            this.requestDynamicRender();
-          }
+          this.requestDynamicRender();
         });
         this.testSignalToggle = document.getElementById("testSignalToggle");
 
@@ -360,9 +321,9 @@
         this.channelVisible = Array(this.numChannels).fill(true);
         this.editingChannel = -1;
         this.statusIntervalId = null;
-        this.data = [];
+        this.data = new Uint16Array(0);
+        this.transitionCache = Array(this.numChannels).fill(null);
         this.offset = 0;
-        this.isDragging = false;
         this.isDragging = false;
         this.dragStartX = 0;
         this.dragStartOffset = 0;
@@ -380,7 +341,6 @@
         this.triggerModeEnabled = false;
         this.triggerPositionPercent = 25;
         this.triggerFound = false;
-        this.triggerFound = false;
         this.actualTriggerPosition = -1;
         this.measureMode = false;
         this.selection = {
@@ -388,7 +348,6 @@
           startX: 0,
           endX: 0,
           channel: -1,
-          startSample: -1,
           startSample: -1,
           endSample: -1
         };
@@ -653,10 +612,6 @@
         console.log('Status polling started, ID:', this.statusIntervalId);
       }
 
-      async startCapture() {
-        // ... (existing implementation) ...
-      }
-
       async instantCapture() {
         console.log('Starting Instant Capture...');
         this.instantCaptureButton.textContent = 'Capturing...';
@@ -666,6 +621,14 @@
 
         try {
           const response = await fetch(`${API_BASE}/instant_capture`);
+          if (response.status === 503) {
+            let body = null;
+            try { body = await response.json(); } catch (_) { /* tolerate non-JSON */ }
+            if (body && body.error === 'la_busy') {
+              alert('Logic Analyzer Busy\n\nThe logic analyzer is currently being controlled by an AI session via MCP. Please wait for the AI to finish, or ask the AI to stop the capture.');
+              return;
+            }
+          }
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
           const startTime = performance.now();
@@ -691,18 +654,20 @@
       }
 
       processCapturedData(buffer) {
-        this.data = [];
         const bufferSize = buffer.byteLength;
         console.log(`Received ${bufferSize} bytes from ESP32.`);
         const dataArray = new Uint8Array(buffer);
         this.dataSource = "Hardware";
 
-        for (let n = 0; n + 4 < dataArray.byteLength; n += 2) {
+        const sampleCount = Math.max(0, Math.floor((dataArray.byteLength - 4) / 2));
+        const samples = new Uint16Array(sampleCount);
+        for (let sampleIndex = 0, n = 0; sampleIndex < sampleCount; sampleIndex++, n += 2) {
           const lowByte = dataArray[n + 2];
           const highByte = dataArray[n + 1];
-          const word = (highByte << 8) | lowByte;
-          this.data.push(word);
+          samples[sampleIndex] = (highByte << 8) | lowByte;
         }
+        this.data = samples;
+        this.invalidateTransitionCache();
 
         console.log(`Fetched data length: ${this.data.length}`);
         this.samplesPerScreen = this.data.length || this.DEFAULT_SAMPLES_PER_SCREEN;
@@ -805,7 +770,8 @@
             const dataOffset = 12 + jsonLen;
             const dataBytes = buffer.slice(dataOffset, dataOffset + dataLen * 2);
             const uint16Data = new Uint16Array(dataBytes);
-            this.data = Array.from(uint16Data);
+            this.data = new Uint16Array(uint16Data);
+            this.invalidateTransitionCache();
             this.dataSource = file.name;
 
             console.log("Loaded capture:", metadata);
@@ -919,6 +885,15 @@
           console.log('Fetching /la_start_capture...');
           const response = await fetch(`${API_BASE}/la_start_capture`);
           console.log('Response received:', response.status);
+          if (response.status === 503) {
+            let body = null;
+            try { body = await response.json(); } catch (_) { /* tolerate non-JSON */ }
+            if (body && body.error === 'la_busy') {
+              this.startButton.textContent = 'Start';
+              alert('Logic Analyzer Busy\n\nThe logic analyzer is currently being controlled by an AI session via MCP. Please wait for the AI to finish, or ask the AI to stop the capture.');
+              return;
+            }
+          }
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
           const status = await response.json();
@@ -1502,7 +1477,10 @@
         this.ctx.lineWidth = 1.1;
         this.ctx.setLineDash([2, 5]);
 
-        for (let i = 0; i < this.samplesPerScreen; i++) {
+        // A grid line per sample can mean 65K separate Canvas strokes. Keep
+        // the grid useful while bounding it to roughly 16 divisions.
+        const gridStep = Math.max(1, Math.ceil(this.samplesPerScreen / 16));
+        for (let i = 0; i < this.samplesPerScreen; i += gridStep) {
           const x = i * xscale + this.labelOffset;
           this.ctx.beginPath();
           this.ctx.moveTo(x, this.topBarHeight);
@@ -1518,21 +1496,19 @@
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'top';
 
-        const labelSpacing = Math.ceil(this.samplesPerScreen / 16);
+        const labelSpacing = Math.max(1, Math.ceil(this.samplesPerScreen / 16));
         const timePerSampleNs = 1e9 / this.sampleRateHz;
 
-        for (let i = 0; i < this.samplesPerScreen; i++) {
+        for (let i = 0; i < this.samplesPerScreen; i += labelSpacing) {
           const x = i * xscale + this.labelOffset;
           this.ctx.beginPath();
           this.ctx.moveTo(x, this.topBarHeight);
           this.ctx.lineTo(x, this.topBarHeight + 5);
           this.ctx.stroke();
 
-          if (i % labelSpacing === 0) {
-            const timeValueNs = (Math.floor(this.offset) + i) * timePerSampleNs;
-            const label = (Math.floor(this.offset) + i) === 0 ? '0' : this.formatTime(timeValueNs);
-            this.ctx.fillText(label, x + ((Math.floor(this.offset) + i) === 0 ? 8 : 0), this.topBarHeight + 6);
-          }
+          const timeValueNs = (Math.floor(this.offset) + i) * timePerSampleNs;
+          const label = (Math.floor(this.offset) + i) === 0 ? '0' : this.formatTime(timeValueNs);
+          this.ctx.fillText(label, x + ((Math.floor(this.offset) + i) === 0 ? 8 : 0), this.topBarHeight + 6);
         }
       }
 
@@ -1662,28 +1638,54 @@
         this.ctx.strokeStyle = this.colors[channel];
         this.ctx.lineWidth = 2;
 
+        const visibleSamples = Math.min(
+          this.samplesPerScreen,
+          Math.max(0, this.data.length - Math.floor(this.offset))
+        );
+        if (visibleSamples <= 0) return;
+
+        const drawablePixels = Math.max(1, Math.floor(this.canvas.width - this.labelOffset));
+        const samplesPerPixel = Math.max(1, Math.ceil(visibleSamples / drawablePixels));
         let prevY = yBase + this.channelHeights[channel] / 2;
         let first = true;
 
-        for (let i = 0; i < this.samplesPerScreen; i++) {
-          const sampleIndex = Math.floor(this.offset + i);
-          if (sampleIndex >= this.data.length) break;
+        // When zoomed out, collapse every horizontal pixel bucket to its
+        // first/last state and whether it contains a transition. This bounds
+        // Canvas path complexity to the viewport width rather than 65K points.
+        for (let i = 0; i < visibleSamples; i += samplesPerPixel) {
+          const bucketEnd = Math.min(visibleSamples, i + samplesPerPixel);
+          const firstSample = (this.data[Math.floor(this.offset) + i] >> channel) & 1;
+          let lastSample = firstSample;
+          let hasTransition = false;
+          for (let j = i + 1; j < bucketEnd; j++) {
+            const sample = (this.data[Math.floor(this.offset) + j] >> channel) & 1;
+            if (sample !== lastSample) hasTransition = true;
+            lastSample = sample;
+          }
 
-          const sample = (this.data[sampleIndex] >> channel) & 1;
           const x = i * xscale + this.labelOffset;
-          const y = yBase + (1 - sample) * (this.channelHeights[channel] - 10);
+          const firstY = yBase + (1 - firstSample) * (this.channelHeights[channel] - 10);
+          const lastY = yBase + (1 - lastSample) * (this.channelHeights[channel] - 10);
 
           if (first) {
             this.ctx.beginPath();
-            this.ctx.moveTo(x, y);
+            this.ctx.moveTo(x, firstY);
             first = false;
           } else {
             this.ctx.lineTo(x, prevY);
-            this.ctx.lineTo(x, y);
+            this.ctx.lineTo(x, firstY);
           }
 
-          prevY = y;
+          if (hasTransition) {
+            const oppositeY = firstSample
+              ? yBase + this.channelHeights[channel] - 10
+              : yBase;
+            this.ctx.lineTo(x, oppositeY);
+            this.ctx.lineTo(x, lastY);
+          }
+          prevY = lastY;
         }
+        this.ctx.lineTo(this.labelOffset + visibleSamples * xscale, prevY);
         this.ctx.stroke();
       }
 
@@ -1788,18 +1790,9 @@
           this.overlayCtx.restore();
           return;
         }
-        let risingEdges = 0;
-        let fallingEdges = 0;
-        const channelMask = 1 << this.selection.channel;
-
-        let prevState = (this.data[startSampleIdx] & channelMask) ? 1 : 0;
-
-        for (let i = startSampleIdx + 1; i <= endSampleIdx; i++) {
-          const currState = (this.data[i] & channelMask) ? 1 : 0;
-          if (prevState === 0 && currState === 1) risingEdges++;
-          if (prevState === 1 && currState === 0) fallingEdges++;
-          prevState = currState;
-        }
+        const transitions = this.getChannelTransitions(this.selection.channel);
+        const risingEdges = this.countIndicesInRange(transitions.rising, startSampleIdx + 1, endSampleIdx);
+        const fallingEdges = this.countIndicesInRange(transitions.falling, startSampleIdx + 1, endSampleIdx);
 
         const durationSamples = endSampleIdx - startSampleIdx;
         const durationTime = durationSamples / this.sampleRateHz;
@@ -1843,39 +1836,76 @@
         return `${(hz / 1000000).toFixed(2)} MHz`;
       }
 
+      invalidateTransitionCache() {
+        this.transitionCache = Array(this.numChannels).fill(null);
+      }
+
+      getChannelTransitions(channel) {
+        if (this.transitionCache[channel]) return this.transitionCache[channel];
+
+        const all = [];
+        const rising = [];
+        const falling = [];
+        if (this.data.length > 1) {
+          const mask = 1 << channel;
+          let previous = (this.data[0] & mask) ? 1 : 0;
+          for (let i = 1; i < this.data.length; i++) {
+            const current = (this.data[i] & mask) ? 1 : 0;
+            if (current !== previous) {
+              all.push(i);
+              (current ? rising : falling).push(i);
+              previous = current;
+            }
+          }
+        }
+
+        const result = {
+          all: Uint32Array.from(all),
+          rising: Uint32Array.from(rising),
+          falling: Uint32Array.from(falling)
+        };
+        this.transitionCache[channel] = result;
+        return result;
+      }
+
+      lowerBound(values, target) {
+        let low = 0;
+        let high = values.length;
+        while (low < high) {
+          const mid = low + ((high - low) >> 1);
+          if (values[mid] < target) low = mid + 1;
+          else high = mid;
+        }
+        return low;
+      }
+
+      upperBound(values, target) {
+        let low = 0;
+        let high = values.length;
+        while (low < high) {
+          const mid = low + ((high - low) >> 1);
+          if (values[mid] <= target) low = mid + 1;
+          else high = mid;
+        }
+        return low;
+      }
+
+      countIndicesInRange(values, start, end) {
+        return this.upperBound(values, end) - this.lowerBound(values, start);
+      }
+
       findNearestEdges(channel, centerIndex) {
         if (channel < 0 || channel >= this.numChannels || centerIndex < 0 || centerIndex >= this.data.length) {
           return null;
         }
 
-        const centerSample = (this.data[centerIndex] >> channel) & 1;
-        let leftIndex = -1;
-        let rightIndex = -1;
+        const transitions = this.getChannelTransitions(channel).all;
+        const rightPosition = this.upperBound(transitions, centerIndex);
+        if (rightPosition === 0 || rightPosition >= transitions.length) return null;
 
-        // Search backwards
-        for (let i = centerIndex - 1; i >= 0; i--) {
-          const sample = (this.data[i] >> channel) & 1;
-          if (sample !== centerSample) {
-            leftIndex = i; // Found the edge (transition point)
-            break;
-          }
-        }
-
-        // Search forwards
-        for (let i = centerIndex + 1; i < this.data.length; i++) {
-          const sample = (this.data[i] >> channel) & 1;
-          if (sample !== centerSample) {
-            rightIndex = i; // Found the edge
-            break;
-          }
-        }
-
-        if (leftIndex !== -1 && rightIndex !== -1) {
-          // Adjust indices to represent the actual edge position (between samples)
-          // For visualization, we might want to snap to the sample where the value changed
-          return { left: leftIndex, right: rightIndex };
-        }
-        return null;
+        const leftTransition = transitions[rightPosition - 1];
+        const rightTransition = transitions[rightPosition];
+        return { left: leftTransition - 1, right: rightTransition };
       }
 
       drawHoverMeasurement() {
