@@ -1617,24 +1617,40 @@ static esp_err_t la_configure_handler(httpd_req_t *req) {
     cJSON *measureMode = cJSON_GetObjectItem(root, "measureMode");
 
     if (sampleRate) {
-        gbl_sample_rate = sampleRate->valueint;
+        const uint32_t requested_rate = (uint32_t)sampleRate->valuedouble;
 
-        // Map sample rate to register value
-        if (gbl_sample_rate >= 264000000) gbl_sample_rate_reg = 255;
-        else if (gbl_sample_rate >= 132000000) gbl_sample_rate_reg = 0;
-        else if (gbl_sample_rate >= 66000000) gbl_sample_rate_reg = 1;
-        else if (gbl_sample_rate >= 33000000) gbl_sample_rate_reg = 2;
-        else if (gbl_sample_rate >= 22000000) gbl_sample_rate_reg = 3;
-        else if (gbl_sample_rate >= 16500000) gbl_sample_rate_reg = 4;
-        else if (gbl_sample_rate >= 11000000) gbl_sample_rate_reg = 6;
-        else if (gbl_sample_rate >= 6000000) gbl_sample_rate_reg = 11;
-        else if (gbl_sample_rate >= 3000000) gbl_sample_rate_reg = 22;
-        else if (gbl_sample_rate >= 2000000) gbl_sample_rate_reg = 33;
-        else if (gbl_sample_rate >= 1000000) gbl_sample_rate_reg = 66;
-        else if (gbl_sample_rate >= 500000) gbl_sample_rate_reg = 132;
-        else gbl_sample_rate_reg = 254; // 0.26MHz
+        /* FPGA divider 0..254 samples at 132 MHz / (divider + 1).
+         * Divider 255 is a special 264 MHz mode. Store and report the
+         * effective rate so browser time/frequency measurements use the same
+         * clock that produced the samples. */
+        if (requested_rate >= 264000000) {
+            gbl_sample_rate_reg = 255; gbl_sample_rate = 264000000;
+        } else if (requested_rate >= 132000000) {
+            gbl_sample_rate_reg = 0;   gbl_sample_rate = 132000000;
+        } else if (requested_rate >= 66000000) {
+            gbl_sample_rate_reg = 1;   gbl_sample_rate = 66000000;
+        } else if (requested_rate >= 33000000) {
+            gbl_sample_rate_reg = 3;   gbl_sample_rate = 33000000;
+        } else if (requested_rate >= 22000000) {
+            gbl_sample_rate_reg = 5;   gbl_sample_rate = 22000000;
+        } else if (requested_rate >= 16500000) {
+            gbl_sample_rate_reg = 7;   gbl_sample_rate = 16500000;
+        } else if (requested_rate >= 11000000) {
+            gbl_sample_rate_reg = 11;  gbl_sample_rate = 11000000;
+        } else if (requested_rate >= 6000000) {
+            gbl_sample_rate_reg = 21;  gbl_sample_rate = 6000000;
+        } else if (requested_rate >= 3000000) {
+            gbl_sample_rate_reg = 43;  gbl_sample_rate = 3000000;
+        } else if (requested_rate >= 2000000) {
+            gbl_sample_rate_reg = 65;  gbl_sample_rate = 2000000;
+        } else if (requested_rate >= 1000000) {
+            gbl_sample_rate_reg = 131; gbl_sample_rate = 1000000;
+        } else {
+            gbl_sample_rate_reg = 254; gbl_sample_rate = 132000000 / 255;
+        }
 
-        ESP_LOGI(TAG, "LA Config: Sample Rate = %u, Reg = %u", gbl_sample_rate, gbl_sample_rate_reg);
+        ESP_LOGI(TAG, "LA Config: Requested Rate = %u, Effective Rate = %u, Reg = %u",
+                 requested_rate, gbl_sample_rate, gbl_sample_rate_reg);
     }
     if (triggerPosition) {
         gbl_trigger_position = triggerPosition->valueint;
