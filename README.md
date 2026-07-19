@@ -32,7 +32,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
   - [XVC](https://docs.xilinx.com/r/en-US/ug908-vivado-programming-debugging/Virtual-Cable) (Vivado Virtual Cable) for FPGA development
 
 - **16-Channel Logic Analyzer**
-  - 264 MHz default sample rate (configurable)
+  - 264 MHz default sample rate (configurable down to 0.518 MHz)
   - Configurable per-channel triggers (rising, falling, crossing, high, low)
   - 128 KB PSRAM capture buffer
   - Web-based viewer
@@ -114,6 +114,14 @@ The device has four logical ports (A–D). Each port is configured independently
 
 ## Getting Started
 
+### Current Release
+
+The current firmware release is **v0.2.1**. It improves Logic Analyzer browser
+responsiveness, restores channel trigger indicators after a page refresh,
+corrects low-rate waveform timing, and makes SReset safe across device restarts
+and available to Black Magic GDB reset commands. See
+[`RELEASE_NOTES_v0.2.1.md`](RELEASE_NOTES_v0.2.1.md) for details.
+
 ### Prerequisites
 
 - [ESP-IDF v5.5.2 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
@@ -172,15 +180,15 @@ After a successful build two versioned release binaries are automatically genera
 
 Example filenames:
 ```
-esp32jtag_v0.1.0_20260325_085159_c14c3fe_ota.bin
-esp32jtag_v0.1.0_20260325_085159_c14c3fe_full.bin
+esp32jtag_v0.2.1_20260719_120000_abcdef0_ota.bin
+esp32jtag_v0.2.1_20260719_120000_abcdef0_full.bin
 ```
 
 The filename encodes version, UTC build timestamp, and git commit so you can always tell which is newer.
 
 ### Firmware Update — OTA (primary, no USB cable required)
 
-1. Open `https://<device-ip>/ota_upload` in your browser.
+1. Open `https://<device-ip>/` and select the **Firmware Update** tab.
 2. Select the `_ota.bin` file and click **Upload & Update**.
 3. The device reboots automatically into the new firmware.
 

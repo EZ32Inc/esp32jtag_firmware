@@ -17,6 +17,7 @@ CTestTestfile.cmake
 cmake-build-debug/*
 .vscode/*
 build/*
+/build_*/
 workspace.code-workspace
 sdkconfig.old
 
