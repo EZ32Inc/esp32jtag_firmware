@@ -91,6 +91,7 @@ uint8_t  gbl_sreset_polarity  = 1;    /* 0 = active HIGH, 1 = active LOW (defaul
 uint32_t gbl_sreset_pulse_ms  = 100;  /* pulse width in ms */
 bool gbl_trigger_enabled = true;
 bool gbl_trigger_mode_or = true;
+static bool gbl_la_measure_mode = false;
 bool gbl_capture_internal_test_signal = false;
 trigger_edge_t gbl_channel_triggers[16] = {TRIGGER_DISABLED};
 
@@ -1613,6 +1614,7 @@ static esp_err_t la_configure_handler(httpd_req_t *req) {
     cJSON *triggerEnabled = cJSON_GetObjectItem(root, "triggerEnabled");
     cJSON *triggerModeOR = cJSON_GetObjectItem(root, "triggerModeOR");
     cJSON *captureInternalTestSignal = cJSON_GetObjectItem(root, "captureInternalTestSignal");
+    cJSON *measureMode = cJSON_GetObjectItem(root, "measureMode");
 
     if (sampleRate) {
         gbl_sample_rate = sampleRate->valueint;
@@ -1651,6 +1653,10 @@ static esp_err_t la_configure_handler(httpd_req_t *req) {
         ESP_LOGI(TAG, "LA Config: Capture Internal Test Signal = %s", gbl_capture_internal_test_signal ? "ON" : "OFF");
         set_la_input_sel(gbl_capture_internal_test_signal);
     }
+    if (measureMode) {
+        gbl_la_measure_mode = cJSON_IsTrue(measureMode);
+        ESP_LOGI(TAG, "LA Config: Measure Mode = %s", gbl_la_measure_mode ? "ON" : "OFF");
+    }
 
     cJSON *channels = cJSON_GetObjectItem(root, "channels");
     if (channels && cJSON_IsArray(channels)) {
@@ -1688,6 +1694,7 @@ static esp_err_t la_get_settings_handler(httpd_req_t *req) {
     cJSON_AddBoolToObject  (root, "triggerEnabled", gbl_trigger_enabled);
     cJSON_AddBoolToObject  (root, "triggerModeOR",  gbl_trigger_mode_or);
     cJSON_AddBoolToObject  (root, "captureInternalTestSignal", gbl_capture_internal_test_signal);
+    cJSON_AddBoolToObject  (root, "measureMode", gbl_la_measure_mode);
     cJSON_AddNumberToObject(root, "triggerPosition", gbl_trigger_position);
 
     cJSON *channels = cJSON_CreateArray();

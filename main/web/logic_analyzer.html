@@ -359,6 +359,7 @@
           triggerEnabled: true,
           triggerModeOR: true,
           captureInternalTestSignal: false,
+          measureMode: false,
           triggerPosition: 50,
           channels: Array(16).fill('disabled')
         };
@@ -540,9 +541,10 @@
         // Measure Mode Toggle
         this.measureModeToggle.addEventListener('click', () => {
           this.measureMode = !this.measureMode;
-          this.measureModeToggle.textContent = this.measureMode ? "Measure: ON" : "Measure: OFF";
-          this.measureModeToggle.style.backgroundColor = this.measureMode ? "#475569" : "#334155";
+          this.settings.measureMode = this.measureMode;
+          this.updateMeasureModeUI();
           this.selection.active = false; // Clear selection when toggling
+          this.sendSettingsToServer();
           this.requestDynamicRender();
         });
 
@@ -554,18 +556,52 @@
         this.requestStaticRender();
         this.requestDynamicRender();
       }
+
+      updateMeasureModeUI() {
+        this.measureModeToggle.textContent = this.measureMode ? "Measure: ON" : "Measure: OFF";
+        this.measureModeToggle.style.backgroundColor = this.measureMode ? "#475569" : "#334155";
+      }
+
+      applySettingsToUI() {
+        this.sampleRateInput.value = this.settings.sampleRate;
+        this.triggerPositionInput.value = this.settings.triggerPosition;
+        this.triggerModeToggle.textContent = this.settings.triggerModeOR ? "OR" : "AND";
+        this.triggerOnToggle.textContent = this.settings.triggerEnabled ? "Trigger ON" : "Trigger OFF";
+
+        const testSignal = this.settings.captureInternalTestSignal ? "ON" : "OFF";
+        this.testSignalToggle.textContent = testSignal;
+        this.testSignalTopToggle.textContent = "Test Signal: " + testSignal;
+
+        this.measureMode = Boolean(this.settings.measureMode);
+        this.updateMeasureModeUI();
+
+        // Trigger selects are created lazily when the settings popup opens.
+        // Keep any existing controls synchronized with the device state.
+        for (let i = 0; i < this.numChannels; i++) {
+          const select = document.getElementById(`triggerCH${i + 1}`);
+          if (select) select.value = this.settings.channels[i] || 'disabled';
+        }
+
+        this.updateSampleRate(this.settings.sampleRate);
+        this.updateTrigger();
+        this.updateStatusBar();
+        // Per-channel trigger icons are drawn on the static Canvas layer.
+        this.requestStaticRender();
+        this.requestDynamicRender();
+      }
+
       async fetchAndApplySettings() {
         try {
           const response = await fetch(`${API_BASE}/la_get_settings`);
           if (!response.ok) return;
           const s = await response.json();
-          // Merge server state into this.settings
+          if (!Array.isArray(s.channels) || s.channels.length !== this.numChannels) {
+            console.warn('fetchAndApplySettings: invalid channels array, retaining current values');
+            delete s.channels;
+          }
+          // Merge server state and update every UI surface after the async fetch.
           Object.assign(this.settings, s);
-          // Update visible UI elements immediately
-          this.testSignalTopToggle.textContent = "Test Signal: " + (this.settings.captureInternalTestSignal ? "ON" : "OFF");
-          this.sampleRateInput.value = this.settings.sampleRate;
-          this.triggerPositionInput.value = this.settings.triggerPosition;
-          this.updateStatusBar();
+          this.applySettingsToUI();
         } catch (e) {
           console.warn('fetchAndApplySettings: could not reach server, using defaults', e);
         }
