@@ -1048,7 +1048,16 @@ static void draw_port_cfg_info(void)
 /* Start background tasks (GDB, logic analyser, XVC). */
 static void start_background_tasks(void)
 {
-    if (gbl_pc_cfg == PC_BMP_SWD_JTAG) {
+    bool usb_dap_enabled = false;
+    {
+        char *val = NULL;
+        if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &val) == ESP_OK && val) {
+            usb_dap_enabled = (strcmp(val, "1") != 0);
+            free(val);
+        }
+    }
+
+    if (gbl_pc_cfg == PC_BMP_SWD_JTAG && !usb_dap_enabled) {
         ESP_LOGI(TAG, "Creating gdb_thread task. gbl_pa_cfg=%d, gbl_pc_cfg=%d", gbl_pa_cfg, gbl_pc_cfg);
         ESP_LOGI(TAG, "Free heap: %u", esp_get_free_heap_size());
         ESP_LOGI(TAG, "To do platform_init() for BMP");
@@ -1058,6 +1067,8 @@ static void start_background_tasks(void)
         if (result != pdPASS) {
             ESP_LOGE(TAG, "Failed to create gdb_thread task! Out of memory?");
         }
+    } else if (gbl_pc_cfg == PC_BMP_SWD_JTAG && usb_dap_enabled) {
+        ESP_LOGI(TAG, "USB CMSIS-DAP enabled — skipping BMP gdb_thread (mutual exclusion)");
     }
 
     if (g_board->has_logic_analyzer) {

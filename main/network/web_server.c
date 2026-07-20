@@ -898,16 +898,17 @@ esp_err_t set_credentials_handler(httpd_req_t *req) {
         }
     }
 
-    // UART Port Selection is fixed to 1 (Web Terminal) — ignore incoming value
-    {
+    // Check if UART Port selection changed (requires reboot)
+    if (uartPortSel_str) {
         char *stored_uart_psel = NULL;
         if (storage_alloc_and_read(UART_PORT_SEL_KEY, &stored_uart_psel) == ESP_OK && stored_uart_psel) {
-            if (strcmp(stored_uart_psel, "1") != 0) {
-                ESP_LOGI(TAG, "UART Port Selection forced to Web Terminal (was %s)", stored_uart_psel);
+            if (strcmp(stored_uart_psel, uartPortSel_str) != 0) {
+                ESP_LOGI(TAG, "UART Port changed: %s -> %s", stored_uart_psel, uartPortSel_str);
                 reboot_required = true;
             }
             free(stored_uart_psel);
         } else {
+            ESP_LOGI(TAG, "UART Port set for the first time: %s", uartPortSel_str);
             reboot_required = true;
         }
     }
@@ -920,17 +921,18 @@ esp_err_t set_credentials_handler(httpd_req_t *req) {
         reboot_required = true;
     }
 
-    // Disable USB DAP is fixed to true — ignore incoming value
+    // Check if USB DAP setting changed (requires reboot)
     {
         char *stored_disable_dap = NULL;
         if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &stored_disable_dap) == ESP_OK && stored_disable_dap) {
-            if (strcmp(stored_disable_dap, "1") != 0) {
-                ESP_LOGI(TAG, "Disable USB DAP forced to enabled (was %s)", stored_disable_dap);
+            bool stored_val = (strcmp(stored_disable_dap, "1") == 0);
+            if (stored_val != disableUsbDapCom_val) {
+                ESP_LOGI(TAG, "USB DAP setting changed: %d -> %d", stored_val, disableUsbDapCom_val);
                 reboot_required = true;
             }
             free(stored_disable_dap);
         } else {
-            ESP_LOGI(TAG, "Disable USB DAP set for the first time (forced enabled).");
+            ESP_LOGI(TAG, "USB DAP setting first time: %d", disableUsbDapCom_val);
             reboot_required = true;
         }
     }
@@ -958,8 +960,11 @@ esp_err_t set_credentials_handler(httpd_req_t *req) {
         if (uartDataBits_str) storage_write_session(h, UART_DATA_BITS_KEY, uartDataBits_str, strlen(uartDataBits_str));
         if (uartStopBits_str) storage_write_session(h, UART_STOP_BITS_KEY, uartStopBits_str, strlen(uartStopBits_str));
         if (uartParity_str) storage_write_session(h, UART_PARITY_KEY, uartParity_str, strlen(uartParity_str));
-        storage_write_session(h, UART_PORT_SEL_KEY, "1", 1);
-        storage_write_session(h, DISABLE_USB_DAP_KEY, "1", 1);
+        if (uartPortSel_str) storage_write_session(h, UART_PORT_SEL_KEY, uartPortSel_str, strlen(uartPortSel_str));
+        {
+            const char *dap_val = disableUsbDapCom_val ? "1" : "0";
+            storage_write_session(h, DISABLE_USB_DAP_KEY, dap_val, strlen(dap_val));
+        }
 
         storage_close_session(h);
     }
@@ -1088,9 +1093,16 @@ esp_err_t get_credentials_handler(httpd_req_t *req) {
          cJSON_AddStringToObject(root, "otaUrl", "");
     }
 
-    // Fixed values: MCU interface is always GPIO, UART always Web Terminal
+    // MCU interface is always GPIO
     cJSON_AddStringToObject(root, "mcuInterface", "GPIO");
-    cJSON_AddStringToObject(root, "uartPortSel", "1");
+
+    // UART port selection: 0=USB, 1=Web Terminal
+    if (storage_alloc_and_read(UART_PORT_SEL_KEY, &val) == ESP_OK && val) {
+        cJSON_AddStringToObject(root, "uartPortSel", val);
+        free(val); val = NULL;
+    } else {
+        cJSON_AddStringToObject(root, "uartPortSel", "1");
+    }
 
     // --- UART Settings ---
     if (storage_alloc_and_read(UART_BAUD_KEY, &val) == ESP_OK && val) {
@@ -1121,8 +1133,13 @@ esp_err_t get_credentials_handler(httpd_req_t *req) {
         cJSON_AddStringToObject(root, "uartParity", "n"); // 'n' for None
     }
 
-    // Fixed value: USB DAP/COM is always disabled
-    cJSON_AddBoolToObject(root, "disableUsbDapCom", true);
+    // USB DAP/COM enabled state: read from NVS
+    if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &val) == ESP_OK && val) {
+        cJSON_AddBoolToObject(root, "disableUsbDapCom", strcmp(val, "1") == 0);
+        free(val); val = NULL;
+    } else {
+        cJSON_AddBoolToObject(root, "disableUsbDapCom", true);
+    }
 
     const char *sys_info = cJSON_PrintUnformatted(root);
     httpd_resp_sendstr(req, sys_info);
