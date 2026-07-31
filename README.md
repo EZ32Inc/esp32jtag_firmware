@@ -302,6 +302,8 @@ arm-none-eabi-gdb firmware.elf
 
 When connected via USB, the device appears as a CMSIS-DAP interface compatible with pyOCD and most IDEs (VS Code Cortex-Debug, Keil, IAR).
 
+When Port C is configured for SWD/JTAG, only one of the two debug paths is active at a time — the BMP GDB server or the USB CMSIS-DAP interface (mutual exclusion). Disable the USB DAP via the **Disable USB DAP** option on the dashboard when you want to use the built-in BMP GDB server instead.
+
 ### XVC (Vivado Virtual Cable)
 
 For FPGA development, configure Port D to **XVC** mode. Then connect Vivado to `<device-ip>:2542`.
