@@ -46,6 +46,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
   - WiFi AP mode (standalone hotspot) or STA mode (connects to existing network)
   - WiFi provisioning
   - OTA firmware updates over HTTPS
+  - OTA partition management — view OTA status, switch between `ota_0` / `ota_1` from the web UI
   - WebSocket bridge for UART traffic
 
 - **Web Interface**
@@ -55,6 +56,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
   - Debugger target / RTOS / interface selection
   - Port A/B/C/D mode configuration
   - SRESET polarity (active HIGH / active LOW) and pulse width (1–5000 ms) configuration — applied without reboot via `POST /api/sreset_config`
+  - Reboot into ROM bootloader mode from the web UI (`POST /reboot_bootloader`)
 
 - **Signal Generation (Port D)**
   - Provides signal stimulus to the target system via Port D pins
@@ -192,6 +194,20 @@ The filename encodes version, UTC build timestamp, and git commit so you can alw
 2. Select the `_ota.bin` file and click **Upload & Update**.
 3. The device reboots automatically into the new firmware.
 
+OTA updates use two partitions (`ota_0` / `ota_1`). After an update, you can:
+- View the running and alternate partition from the web UI (`/api/ota_status`).
+- Roll back to the previous firmware by clicking **Switch to Alternate Partition** (`/switch_ota_partition`) — useful if a new build misbehaves.
+
+### Reboot to Bootloader (reflash mode)
+
+From the web UI you can reboot the device into ROM bootloader mode (`/reboot_bootloader`). This is useful when the firmware is not booting properly, when the serial port is unavailable (CMSIS-DAP USB mode), or when flashing via esptool instead of OTA.
+
+After the reboot, enter download mode by holding **BOOT0** (SW1) while powering up, or run:
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 --before default-reset run
+```
+then flash with esptool as described below.
+
 ### Firmware Update — USB flash (factory / first-time programming)
 
 ```bash
@@ -256,6 +272,9 @@ After connecting to the AP (or the local network in STA mode), open a browser an
 | `/credentials` | Change web UI username and password |
 | `/ota_upload` | Upload new firmware |
 | `/reset_to_factory` | Erase all NVS settings and reboot |
+| `/reboot_bootloader` | Reboot into ROM bootloader (reflash) mode |
+| `/switch_ota_partition` | Switch to the alternate OTA partition and reboot |
+| `/api/ota_status` | OTA partition status (running + alternate labels) |
 
 ### Debugger Configuration
 
