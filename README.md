@@ -20,7 +20,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
 | **Source code** | <https://github.com/EZ32Inc/esp32jtag_firmware> |
 | **Releases** | <https://github.com/EZ32Inc/esp32jtag_firmware/releases> |
 | **Recommended dev tool** | [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) |
-| **Build environment** | ESP-IDF v5.5.2 or newer |
+| **Build environment** | ESP-IDF v5.5.4 or newer |
 
 ---
 
@@ -74,7 +74,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
 | Item | Value |
 |---|---|
 | MCU | ESP32-S3 |
-| Flash | 8 MB |
+| Flash | 16 MB |
 | PSRAM | Required (logic analyzer buffer) |
 | FPGA | Lattice ICE40UP5K |
 | Display | Optional LCD (SPI3) |
@@ -124,7 +124,7 @@ and available to Black Magic GDB reset commands. See
 
 ### Prerequisites
 
-- [ESP-IDF v5.5.2 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
+- [ESP-IDF v5.5.4 or newer](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
 - Python 3.8+
 - Git
 - Recommended: [AEL (AI Embedded Lab)](https://github.com/EZ32Inc/ai-embedded-lab) for automated board bring-up and validation
@@ -375,7 +375,7 @@ Key `sdkconfig` options:
 | Option | Value |
 |---|---|
 | Target | `esp32s3` |
-| Flash size | 8 MB |
+| Flash size | 16 MB |
 | Flash frequency | 80 MHz |
 | CPU frequency | 240 MHz |
 | SPIRAM | Enabled (80 MHz) |
@@ -394,12 +394,11 @@ esp32jtag/
 │   ├── types.h                 # Shared type definitions and NVS keys
 │   ├── esp32jtag_common.h      # Pin definitions and port enums
 │   ├── storage.c               # NVS read/write helpers
-│   ├── ui.c / ui_events.c      # LVGL display (optional)
 │   ├── ice40up5k/
 │   │   ├── ice.c               # FPGA SPI driver
 │   │   └── bitstream.bin       # ICE40UP5K bitstream (embedded)
 │   ├── network/
-│   │   ├── web_server.c        # HTTP/HTTPS handlers
+│   │   ├── web_server.c        # HTTP/HTTPS handlers (config, debug status, OTA, port D)
 │   │   ├── network_mngr.c      # WiFi AP/STA management
 │   │   ├── network_mngr_ota.c  # OTA update handler
 │   │   ├── uart_websocket.c    # WebSocket ↔ UART bridge
@@ -408,10 +407,10 @@ esp32jtag/
 ├── components/
 │   ├── blackmagic_esp32/       # BlackMagic Probe (submodule)
 │   ├── CherryDAP/              # CMSIS-DAP over USB
-│   ├── lcd/                    # LCD display driver
+│   ├── lcd/                    # LCD driver + fonts (GUI_Paint / LCD_Driver)
 │   └── platform_include/       # POSIX shims for host headers
+├── partitions/ota_2mb.csv      # 16MB flash, factory + 2× OTA partitions
 ├── CMakeLists.txt
-├── partitions_ota_2mb.csv
 └── sdkconfig.defaults
 ```
 
