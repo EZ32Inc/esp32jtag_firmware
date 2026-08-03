@@ -106,6 +106,7 @@ uint8_t gbl_pa_cfg = 0;
 uint8_t gbl_pb_cfg = 0;
 uint8_t gbl_pc_cfg = 0;
 uint8_t gbl_pd_cfg = 0;
+bool gbl_usb_dap_enabled = true; /* cached USB CMSIS-DAP state (false = disabled), loaded from NVS */
 
 app_params_t g_app_params;
 
@@ -460,6 +461,16 @@ static void load_port_configurations(void)
     ESP_LOGI(TAG, "Port B Config: %s", get_port_b_description_int(gbl_pb_cfg));
     ESP_LOGI(TAG, "Port C Config: %s", get_port_c_description_int(gbl_pc_cfg));
     ESP_LOGI(TAG, "Port D Config: %s", get_port_d_description_int(gbl_pd_cfg));
+
+    // USB CMSIS-DAP state is fixed until reboot, cache it to avoid NVS reads
+    // in the 200 ms LCD redraw loop.
+    char *dap_val = NULL;
+    if (storage_alloc_and_read(DISABLE_USB_DAP_KEY, &dap_val) == ESP_OK && dap_val) {
+        gbl_usb_dap_enabled = (strcmp(dap_val, "1") != 0);
+        free(dap_val);
+    } else {
+        gbl_usb_dap_enabled = false;
+    }
 }
 
 /* Load AP SSID and password from NVS, generating a unique SSID on first boot. */
@@ -981,6 +992,7 @@ esp_err_t set_portd_freq(uint32_t freq_hz)
 }
 
 bool gbl_sw2_gpio48_flag = false;
+static bool g_force_dbg_redraw = false;
 void check_sw1_sw2(void)
 {
     static uint8_t L0 = 0, L48 = 0;    /* Previous GPIO levels, persist across calls */
@@ -1043,6 +1055,44 @@ static void draw_port_cfg_info(void)
         (gbl_pc_cfg == PC_BMP_SWD_JTAG) ? "SWD/JTAG" : "LA", &CURR_FONT, BLACK, MAGENTA);
     Paint_DrawString_EN(X_OFFSET + 16*PAINT_CHAR_WIDTH, y,
         (gbl_pd_cfg == PD_FPGA_XVC) ? "XVC" : "LA", &CURR_FONT, BLACK, MAGENTA);
+}
+
+/* Draw JTAG/SWD debug connection status on LCD. */
+static void draw_debug_status(void)
+{
+    if (!g_board->has_lcd || gbl_pc_cfg != PC_BMP_SWD_JTAG)
+        return;
+
+    static char prev_status[32] = {0};
+    char status[32] = {0};
+
+    bool usb_dap_enabled = gbl_usb_dap_enabled;
+
+    if (usb_dap_enabled) {
+        strcpy(status, "DBG: USB CMSIS-DAP");
+    } else if (cur_target) {
+        if (gdb_target_running)
+            strcpy(status, "DBG: Running");
+        else
+            strcpy(status, "DBG: Halted");
+    } else {
+        strcpy(status, "DBG: No target");
+    }
+
+    if (g_force_dbg_redraw) {
+        prev_status[0] = '\0';
+        g_force_dbg_redraw = false;
+    }
+
+    if (strcmp(prev_status, status) != 0) {
+        uint32_t y = 10 + 24*5 + 30;
+        char padded[32] = {0};
+        snprintf(padded, sizeof(padded), "%-24s", status);
+        uint16_t color = usb_dap_enabled ? BLUE :
+            (cur_target ? (gdb_target_running ? GREEN : YELLOW) : GRAY);
+        Paint_DrawString_EN(X_OFFSET, y, padded, &CURR_FONT, BLACK, color);
+        snprintf(prev_status, sizeof(prev_status), "%s", status);
+    }
 }
 
 /* Start background tasks (GDB, logic analyser, XVC). */
@@ -1254,6 +1304,7 @@ _wait:
             print_sta_info();
         }
 
+        draw_debug_status();
         vTaskDelay(3000 / portTICK_PERIOD_MS);
     }
 

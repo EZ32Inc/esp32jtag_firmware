@@ -51,6 +51,7 @@ What makes ESP32JTAG especially distinctive is its ability to work seamlessly wi
 - **Web Interface**
   - HTTPS web server with embedded TLS certificate
   - Basic-auth protected configuration pages
+  - Live debug probe status panel (`GET /api/debug_status`)
   - Logic analyzer capture and visualization
   - Debugger target / RTOS / interface selection
   - Port A/B/C/D mode configuration
@@ -250,8 +251,9 @@ After connecting to the AP (or the local network in STA mode), open a browser an
 
 | Path | Description |
 |---|---|
-| `/` | Main dashboard — port configuration, debugger settings |
+| `/` | Main dashboard — port configuration, debugger settings, debug probe status |
 | `/loganalyzer` | Logic analyzer capture and waveform viewer |
+| `/api/debug_status` | Live debug probe connection state |
 | `/help` | User guide |
 | `/credentials` | Change web UI username and password |
 | `/ota_upload` | Upload new firmware |

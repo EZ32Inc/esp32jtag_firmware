@@ -541,6 +541,14 @@
           Loading...
         </div>
       </div>
+
+      <div class="panel">
+        <h3>Debug Probe Status</h3>
+        <div id="debugStatusContent" style="font-family: monospace; font-size: 0.88em;
+             line-height: 2.0; margin-top: 8px; color: #222;">
+          Loading...
+        </div>
+      </div>
     </form>
     <footer>
       <span>&copy; EZ32 Technologies Inc. &nbsp;<a href="https://www.ez32.com" target="_blank" rel="noopener">www.ez32.com</a></span>
@@ -690,10 +698,13 @@
         lastActiveTab = tabId;
 
         if (tabId === 'ota-tab') loadOtaVersion();
+        if (tabId === 'wifi-tab') loadDebugStatus();
       }
       showTab(lastActiveTab);
       showTab(lastActiveTab);
       getSystemConfig();
+      loadDebugStatus();
+      setInterval(loadDebugStatus, 3000);
 
       function getSystemConfig() {
         var xhttp = new XMLHttpRequest();
@@ -1195,6 +1206,27 @@
                 v.firmware_version + '  (build ' + v.build_date + ' ' + v.build_time +
                 '  commit ' + v.main_git_commit + ')';
             }
+          })
+          .catch(function() {});
+      }
+
+      function loadDebugStatus() {
+        fetch('/api/debug_status')
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(d) {
+            if (!d) return;
+            var el = document.getElementById('debugStatusContent');
+            if (!d.port_c_active) {
+              el.innerHTML = '<b>Port C:</b> Not configured for SWD/JTAG';
+              return;
+            }
+            var color = d.connected ? (d.state === 'running' ? 'green' : 'orange') : '#888';
+            var stateText = d.connected
+              ? '<span style="color:' + color + ';font-weight:bold;">' + d.state + '</span>'
+              : '<span style="color:#888;">No target connected</span>';
+            el.innerHTML =
+              '<b>Port C:</b> SWD/JTAG active<br>' +
+              '<b>Target:</b> ' + stateText;
           })
           .catch(function() {});
       }

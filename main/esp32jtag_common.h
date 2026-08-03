@@ -115,3 +115,4 @@ extern uint8_t gbl_pa_cfg;
 extern uint8_t gbl_pb_cfg;
 extern uint8_t gbl_pc_cfg;
 extern uint8_t gbl_pd_cfg;
+extern bool gbl_usb_dap_enabled;
